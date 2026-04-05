@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MEO Dashboard | Googleマップ集客診断</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/htm@3/dist/htm.umd.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+JP:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config={theme:{extend:{
+      fontFamily:{sans:['Inter','Noto Sans JP','sans-serif']},
+      colors:{
+        brand:{50:'#EDFCF0',100:'#D3F8DA',200:'#AAF0B8',300:'#73E38D',400:'#56B877',500:'#41B25D',600:'#2F9A4A',700:'#247A3C',800:'#1D6132',900:'#164F2A',950:'#0A2C16'},
+      }
+    }}}
+  </script>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:'Inter','Noto Sans JP',sans-serif;background:#F8FAFB}
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:#9CA3AF}
+    @keyframes fadeIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+    @keyframes countUp{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
+    @keyframes slideIn{0%{opacity:0;transform:translateX(-12px)}100%{opacity:1;transform:translateX(0)}}
+    @keyframes pulse2{0%,100%{opacity:1}50%{opacity:.6}}
+    @keyframes drawLine{0%{stroke-dashoffset:2000}100%{stroke-dashoffset:0}}
+    @keyframes growBar{0%{transform:scaleY(0)}100%{transform:scaleY(1)}}
+    .anim-fade{animation:fadeIn .5s ease-out both}
+    .anim-count{animation:countUp .6s ease-out both}
+    .anim-slide{animation:slideIn .4s ease-out both}
+    .card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;transition:box-shadow .2s,transform .15s}
+    .card:hover{box-shadow:0 4px 24px rgba(0,0,0,.06);transform:translateY(-1px)}
+    .green-gradient{background:linear-gradient(135deg,#41B25D,#56B877)}
+    .green-gradient-subtle{background:linear-gradient(135deg,#41B25D10,#56B87710)}
+    .green-glow{box-shadow:0 0 0 3px rgba(65,178,93,.15)}
+    .badge-up{background:#EDFCF0;color:#247A3C}
+    .badge-down{background:#FEF2F2;color:#DC2626}
+    .badge-flat{background:#F3F4F6;color:#6B7280}
+    .rank-badge{background:linear-gradient(135deg,#41B25D,#56B877);color:#fff;font-weight:800;border-radius:12px;display:inline-flex;align-items:center;justify-content:center}
+    .tooltip{position:relative}
+    .tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1F2937;color:#fff;font-size:11px;padding:4px 10px;border-radius:6px;white-space:nowrap;z-index:50}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const html=htm.bind(React.createElement);
+const{useState,useEffect,useRef,useMemo}=React;
+
+// ===== SVG Icons (Lucide) =====
+const I={
+  mapPin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  eye:'<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+  route:'<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+  phone:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  globe:'<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  trendUp:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  trendDown:'<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+  barChart:'<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  star:'<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  message:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  arrowUp:'<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  arrowDown:'<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  minus:'<path d="M5 12h14"/>',
+  award:'<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>',
+  target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  zap:'<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+  rocket:'<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+  sparkles:'<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>',
+  brain:'<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>',
+  lightbulb:'<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  bot:'<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+  chevDown:'<path d="m6 9 6 6 6-6"/>',
+  chevRight:'<path d="m9 18 6-6-6-6"/>',
+  settings:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  externalLink:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  messageCircle:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  logIn:'<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>',
+  link2:'<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  building:'<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  alertTriangle:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  circleDot:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>',
+};
+function Icon({name,size=20,color='currentColor',cls='',fill='none'}){
+  return html`<svg xmlns="http://www.w3.org/2000/svg" width=${size} height=${size} viewBox="0 0 24 24" fill=${fill} stroke=${color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class=${cls} dangerouslySetInnerHTML=${{__html:I[name]||''}}/>`;
+}
+function Stars({rating,size=14}){
+  return html`<div class="flex gap-0.5">${[1,2,3,4,5].map(s=>html`<${Icon} key=${s} name="star" size=${size} color=${s<=Math.round(rating)?'#F59E0B':'#E5E7EB'} fill=${s<=Math.round(rating)?'#F59E0B':'none'}/>`)}</div>`;
+}
+
+// ===== DEMO DATA =====
+const STORE={name:'麻布グリル 六本木店',address:'東京都港区六本木4-12-3',rating:4.2,reviewCount:187,photoCount:64,phone:'03-6434-XXXX',website:'https://azabu-grill.jp',category:'レストラン',status:'営業中'};
+
+const KPI=[
+  {id:'views',label:'表示回数',value:12847,prev:11203,icon:'eye',unit:'回',period:'過去28日'},
+  {id:'routes',label:'ルート検索',value:1432,prev:1289,icon:'route',unit:'回',period:'過去28日'},
+  {id:'calls',label:'電話タップ',value:342,prev:301,icon:'phone',unit:'回',period:'過去28日'},
+  {id:'clicks',label:'ウェブサイト',value:876,prev:793,icon:'globe',unit:'クリック',period:'過去28日'},
+];
+
+const VIEWS_TREND=[
+  {month:'10月',views:8420,routes:980,calls:210},
+  {month:'11月',views:9100,routes:1050,calls:240},
+  {month:'12月',views:11200,routes:1320,calls:310},
+  {month:'1月',views:10800,routes:1200,calls:280},
+  {month:'2月',views:11203,routes:1289,calls:301},
+  {month:'3月',views:12847,routes:1432,calls:342},
+];
+
+const SEARCH_QUERIES=[
+  {keyword:'六本木 ランチ',views:2840,pct:22.1},
+  {keyword:'六本木 レストラン',views:2210,pct:17.2},
+  {keyword:'麻布 グリル',views:1890,pct:14.7},
+  {keyword:'六本木 ディナー おすすめ',views:1340,pct:10.4},
+  {keyword:'六本木 イタリアン',views:980,pct:7.6},
+  {keyword:'港区 レストラン 個室',views:720,pct:5.6},
+  {keyword:'六本木 デート ディナー',views:650,pct:5.1},
+  {keyword:'六本木 ステーキ',views:490,pct:3.8},
+];
+
+const AIO_RANKINGS=[
+  {keyword:'六本木 ランチ おすすめ',google:3,chatgpt:5,gemini:4,claude:2,perplexity:3},
+  {keyword:'六本木 レストラン デート',google:5,chatgpt:8,gemini:6,claude:4,perplexity:5},
+  {keyword:'港区 ディナー 個室',google:7,chatgpt:12,gemini:9,claude:7,perplexity:8},
+  {keyword:'六本木 イタリアン',google:4,chatgpt:6,gemini:5,claude:3,perplexity:4},
+  {keyword:'麻布十番 グリル',google:1,chatgpt:2,gemini:1,claude:1,perplexity:1},
+  {keyword:'六本木 ステーキ ランチ',google:8,chatgpt:15,gemini:11,claude:9,perplexity:10},
+  {keyword:'六本木 おしゃれ レストラン',google:6,chatgpt:9,gemini:7,claude:5,perplexity:6},
+];
+
+const REVIEWS_RECENT=[
+  {name:'T.Yamada',rating:5,text:'ランチのコースが素晴らしかった。スタッフのサービスも丁寧で、また利用したい。',date:'3日前'},
+  {name:'M.Sato',rating:4,text:'料理は美味しいが、少し待ち時間が長い。予約していくのがおすすめ。',date:'1週間前'},
+  {name:'K.Tanaka',rating:5,text:'デートで利用。雰囲気も最高で、彼女もとても喜んでいました。',date:'2週間前'},
+  {name:'A.Suzuki',rating:3,text:'味は良いが価格がやや高め。ランチならコスパ良いです。',date:'3週間前'},
+];
+
+// ===== MEO SCORE ENGINE =====
+function calcMeoScore(store,kpi,aio){
+  const scores={};
+  // Basic info (20pts)
+  let basic=0;
+  if(store.name)basic+=3;if(store.phone)basic+=3;if(store.website)basic+=4;
+  if(store.category)basic+=3;if(store.address)basic+=3;if(store.status==='営業中')basic+=4;
+  scores.basic={score:basic,max:20,pct:Math.round(basic/20*100),label:'基本情報'};
+  // Reviews (25pts)
+  let rev=0;
+  if(store.rating>=4.0)rev+=8;else if(store.rating>=3.5)rev+=5;else rev+=2;
+  if(store.reviewCount>=100)rev+=8;else if(store.reviewCount>=50)rev+=5;else if(store.reviewCount>=20)rev+=3;
+  rev+=Math.min(9,Math.round(store.rating*2));
+  scores.reviews={score:Math.min(25,rev),max:25,pct:Math.round(Math.min(25,rev)/25*100),label:'クチコミ'};
+  // Visibility (25pts)
+  let vis=0;
+  const viewGrowth=(kpi[0].value-kpi[0].prev)/kpi[0].prev;
+  if(viewGrowth>0.15)vis+=10;else if(viewGrowth>0.05)vis+=7;else if(viewGrowth>0)vis+=4;
+  if(kpi[0].value>10000)vis+=8;else if(kpi[0].value>5000)vis+=5;else vis+=2;
+  const ctr=(kpi[1].value+kpi[2].value+kpi[3].value)/kpi[0].value;
+  if(ctr>0.2)vis+=7;else if(ctr>0.1)vis+=5;else vis+=2;
+  scores.visibility={score:Math.min(25,vis),max:25,pct:Math.round(Math.min(25,vis)/25*100),label:'検索露出'};
+  // AIO (15pts)
+  let aioS=0;
+  const avgRank=aio.reduce((s,a)=>(s+a.google+a.chatgpt+a.gemini+a.claude+a.perplexity),0)/(aio.length*5);
+  if(avgRank<=3)aioS+=15;else if(avgRank<=5)aioS+=12;else if(avgRank<=8)aioS+=8;else if(avgRank<=12)aioS+=4;else aioS+=1;
+  scores.aio={score:aioS,max:15,pct:Math.round(aioS/15*100),label:'AI検索'};
+  // Engagement (15pts)
+  let eng=0;
+  if(store.photoCount>=50)eng+=6;else if(store.photoCount>=20)eng+=4;else eng+=1;
+  const routeRate=kpi[1].value/kpi[0].value;
+  if(routeRate>0.1)eng+=5;else if(routeRate>0.05)eng+=3;else eng+=1;
+  const callRate=kpi[2].value/kpi[0].value;
+  if(callRate>0.02)eng+=4;else if(callRate>0.01)eng+=2;else eng+=1;
+  scores.engagement={score:Math.min(15,eng),max:15,pct:Math.round(Math.min(15,eng)/15*100),label:'エンゲージメント'};
+
+  const total=Object.values(scores).reduce((s,v)=>s+v.score,0);
+  const maxTotal=100;
+  return{scores,total,maxTotal,pct:Math.round(total/maxTotal*100)};
+}
+
+function getMeoRank(pct){
+  if(pct>=90)return{rank:'S',title:'MEOマスター',color:'#41B25D',bg:'#EDFCF0'};
+  if(pct>=75)return{rank:'A',title:'MEO上級者',color:'#41B25D',bg:'#EDFCF0'};
+  if(pct>=60)return{rank:'B',title:'MEO中級者',color:'#F59E0B',bg:'#FFFBEB'};
+  if(pct>=40)return{rank:'C',title:'MEO初心者',color:'#F97316',bg:'#FFF7ED'};
+  return{rank:'D',title:'対策が必要',color:'#EF4444',bg:'#FEF2F2'};
+}
+
+// ===== COMPONENTS =====
+
+// Animated Number
+function AnimNum({value,duration=1200}){
+  const[dv,setDv]=useState(0);
+  useEffect(()=>{
+    let start=Date.now();
+    const t=setInterval(()=>{
+      const p=Math.min((Date.now()-start)/duration,1);
+      const e=1-Math.pow(1-p,3);
+      setDv(Math.round(e*value));
+      if(p>=1)clearInterval(t);
+    },16);
+    return()=>clearInterval(t);
+  },[value]);
+  return html`<span>${dv.toLocaleString()}</span>`;
+}
+
+// KPI Card
+function KpiCard({data,delay=0}){
+  const diff=data.value-data.prev;
+  const pct=((diff/data.prev)*100).toFixed(1);
+  const up=diff>=0;
+  return html`<div class="card p-5 anim-fade" style=${{animationDelay:delay+'ms'}}>
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">${data.label}</span>
+      <div class="w-9 h-9 rounded-lg green-gradient-subtle flex items-center justify-center">
+        <${Icon} name=${data.icon} size=${18} color="#41B25D"/>
+      </div>
+    </div>
+    <div class="text-3xl font-extrabold text-gray-900 mb-1"><${AnimNum} value=${data.value}/></div>
+    <div class="flex items-center gap-1.5">
+      <span class="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full ${up?'badge-up':'badge-down'}">
+        <${Icon} name=${up?'trendUp':'trendDown'} size=${12}/> ${up?'+':''}${pct}%
+      </span>
+      <span class="text-xs text-gray-400">${data.period}</span>
+    </div>
+  </div>`;
+}
+
+// Mini Line Chart (SVG)
+function LineChart({data,width=600,height=200}){
+  const pad={t:20,r:20,b:35,l:50};
+  const w=width-pad.l-pad.r, h=height-pad.t-pad.b;
+  const maxV=Math.max(...data.map(d=>d.views))*1.1;
+  const pts=data.map((d,i)=>({x:pad.l+(i/(data.length-1))*w,y:pad.t+h-(d.views/maxV)*h}));
+  const line=pts.map((p,i)=>i===0?'M'+p.x+','+p.y:'L'+p.x+','+p.y).join(' ');
+  const area=line+' L'+pts[pts.length-1].x+','+(pad.t+h)+' L'+pts[0].x+','+(pad.t+h)+' Z';
+  const gridLines=[0,0.25,0.5,0.75,1].map(f=>{
+    const y=pad.t+h-f*h;
+    const val=Math.round(f*maxV);
+    return html`<g key=${f}>
+      <line x1=${pad.l} y1=${y} x2=${pad.l+w} y2=${y} stroke="#F3F4F6" strokeWidth="1"/>
+      <text x=${pad.l-8} y=${y+4} textAnchor="end" fill="#9CA3AF" fontSize="10">${(val/1000).toFixed(1)}k</text>
+    </g>`;
+  });
+  return html`<svg viewBox="0 0 ${width} ${height}" class="w-full" style=${{maxHeight:height+'px'}}>
+    ${gridLines}
+    <defs>
+      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#41B25D" stopOpacity="0.2"/>
+        <stop offset="100%" stopColor="#41B25D" stopOpacity="0.01"/>
+      </linearGradient>
+    </defs>
+    <path d=${area} fill="url(#areaGrad)"/>
+    <path d=${line} fill="none" stroke="#41B25D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+      style=${{strokeDasharray:2000,animation:'drawLine 1.5s ease-out forwards'}}/>
+    ${pts.map((p,i)=>html`<circle key=${i} cx=${p.x} cy=${p.y} r="4" fill="#fff" stroke="#41B25D" strokeWidth="2.5"/>`)}
+    ${data.map((d,i)=>html`<text key=${i} x=${pts[i].x} y=${pad.t+h+20} textAnchor="middle" fill="#6B7280" fontSize="11" fontWeight="500">${d.month}</text>`)}
+  </svg>`;
+}
+
+// Horizontal Bar for search queries
+function QueryBars({data}){
+  const maxV=Math.max(...data.map(d=>d.views));
+  return html`<div class="space-y-3">
+    ${data.map((d,i)=>html`<div key=${i} class="anim-slide" style=${{animationDelay:i*60+'ms'}}>
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2">
+          <${Icon} name="search" size=${13} color="#9CA3AF"/>
+          <span class="text-sm font-medium text-gray-700">${d.keyword}</span>
+        </div>
+        <span class="text-xs font-semibold text-gray-500">${d.views.toLocaleString()} <span class="text-gray-400 font-normal">(${d.pct}%)</span></span>
+      </div>
+      <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div class="h-full rounded-full transition-all duration-700 ease-out" style=${{width:(d.views/maxV*100)+'%',background:'linear-gradient(90deg,#41B25D,#56B877)',animationDelay:i*60+'ms'}}/>
+      </div>
+    </div>`)}
+  </div>`;
+}
+
+// AIO Ranking Table
+function AioTable({data}){
+  const engines=[
+    {key:'google',label:'Google',icon:'🔍',color:'#4285F4'},
+    {key:'chatgpt',label:'ChatGPT',icon:'🤖',color:'#10A37F'},
+    {key:'gemini',label:'Gemini',icon:'✨',color:'#8E75B2'},
+    {key:'claude',label:'Claude',icon:'🧠',color:'#D97706'},
+    {key:'perplexity',label:'Perplexity',icon:'🔮',color:'#20808D'},
+  ];
+  const rankBadge=(v)=>{
+    const c=v<=3?'bg-brand-50 text-brand-700 font-bold':v<=5?'bg-blue-50 text-blue-700':v<=10?'bg-gray-100 text-gray-600':'bg-red-50 text-red-600';
+    return html`<span class="inline-flex items-center justify-center w-8 h-6 rounded text-xs ${c}">${v}</span>`;
+  };
+  return html`<div class="overflow-x-auto -mx-5 px-5">
+    <table class="w-full text-sm" style=${{minWidth:'700px'}}>
+      <thead>
+        <tr class="border-b border-gray-200">
+          <th class="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style=${{minWidth:'200px'}}>キーワード</th>
+          ${engines.map(e=>html`<th key=${e.key} class="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+            <span class="mr-0.5">${e.icon}</span>${e.label}
+          </th>`)}
+          <th class="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">平均</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map((row,i)=>{
+          const avg=((row.google+row.chatgpt+row.gemini+row.claude+row.perplexity)/5).toFixed(1);
+          return html`<tr key=${i} class="border-b border-gray-100 hover:bg-gray-50 transition-colors anim-fade" style=${{animationDelay:i*80+'ms'}}>
+            <td class="py-3 px-3 whitespace-nowrap">
+              <div class="flex items-center gap-2">
+                <${Icon} name="search" size=${13} color="#9CA3AF"/>
+                <span class="font-medium text-gray-800">${row.keyword}</span>
+              </div>
+            </td>
+            ${engines.map(e=>html`<td key=${e.key} class="text-center py-3 px-2">${rankBadge(row[e.key])}</td>`)}
+            <td class="text-center py-3 px-2">
+              <span class="inline-flex items-center justify-center w-10 h-6 rounded text-xs font-bold ${parseFloat(avg)<=5?'badge-up':'badge-down'}">${avg}</span>
+            </td>
+          </tr>`;
+        })}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// Score Ring
+function ScoreRing({value,size=140,strokeWidth=10,color='#41B25D'}){
+  const[dv,setDv]=useState(0);
+  const r=(size-strokeWidth)/2,c=r*2*Math.PI,off=c-(dv/100)*c;
+  useEffect(()=>{
+    let start=Date.now();
+    const t=setInterval(()=>{
+      const p=Math.min((Date.now()-start)/1500,1);
+      setDv(Math.round((1-Math.pow(1-p,3))*value));
+      if(p>=1)clearInterval(t);
+    },16);
+    return()=>clearInterval(t);
+  },[value]);
+  return html`<div class="relative inline-flex items-center justify-center">
+    <svg width=${size} height=${size} class="transform -rotate-90">
+      <circle cx=${size/2} cy=${size/2} r=${r} stroke="#F3F4F6" strokeWidth=${strokeWidth} fill="none"/>
+      <circle cx=${size/2} cy=${size/2} r=${r} stroke=${color} strokeWidth=${strokeWidth} fill="none"
+        strokeDasharray=${c} strokeDashoffset=${off} strokeLinecap="round"
+        style=${{transition:'stroke-dashoffset 1.5s ease-out'}}/>
+    </svg>
+    <div class="absolute flex flex-col items-center">
+      <span class="text-3xl font-black" style=${{color}}>${dv}</span>
+      <span class="text-xs text-gray-400">/ 100</span>
+    </div>
+  </div>`;
+}
+
+// Score Category Bar
+function ScoreBars({scores}){
+  const entries=Object.entries(scores);
+  return html`<div class="space-y-3">
+    ${entries.map(([k,v],i)=>html`<div key=${k} class="anim-slide" style=${{animationDelay:i*100+'ms'}}>
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-sm font-medium text-gray-700">${v.label}</span>
+        <span class="text-sm font-bold" style=${{color:v.pct>=70?'#41B25D':v.pct>=50?'#F59E0B':'#EF4444'}}>${v.score}/${v.max}</span>
+      </div>
+      <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div class="h-full rounded-full transition-all duration-1000 ease-out"
+          style=${{width:v.pct+'%',background:v.pct>=70?'linear-gradient(90deg,#41B25D,#56B877)':v.pct>=50?'#F59E0B':'#EF4444'}}/>
+      </div>
+    </div>`)}
+  </div>`;
+}
+
+// Recommendation Card
+function RecCard({icon,title,desc,priority,delay=0}){
+  const pColors={high:'bg-red-50 text-red-600 border-red-200',mid:'bg-yellow-50 text-yellow-700 border-yellow-200',low:'bg-brand-50 text-brand-700 border-brand-200'};
+  const pLabels={high:'優先度：高',mid:'優先度：中',low:'優先度：低'};
+  return html`<div class="card p-4 flex gap-4 anim-fade" style=${{animationDelay:delay+'ms'}}>
+    <div class="w-10 h-10 rounded-lg green-gradient-subtle flex items-center justify-center flex-shrink-0 mt-0.5">
+      <${Icon} name=${icon} size=${18} color="#41B25D"/>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 mb-1">
+        <h4 class="text-sm font-bold text-gray-900">${title}</h4>
+        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border ${pColors[priority]}">${pLabels[priority]}</span>
+      </div>
+      <p class="text-sm text-gray-500 leading-relaxed">${desc}</p>
+    </div>
+  </div>`;
+}
+
+// ===== CONNECT SCREEN (INTRO) =====
+function ConnectScreen({onConnect, onDemo}){
+  const [vis,setVis]=useState(false);
+  useEffect(()=>{setTimeout(()=>setVis(true),100)},[]);
+  const features=[
+    {icon:'eye',title:'表示回数',desc:'Googleマップでの検索表示データ'},
+    {icon:'route',title:'ルート検索数',desc:'お店への経路検索の回数'},
+    {icon:'phone',title:'電話・クリック数',desc:'電話タップとウェブサイト流入'},
+    {icon:'bot',title:'AI検索順位',desc:'ChatGPT/Gemini等での表示順位'},
+    {icon:'star',title:'クチコミ分析',desc:'評価の推移と改善ポイント'},
+    {icon:'target',title:'MEOスコア',desc:'総合スコアと改善ロードマップ'},
+  ];
+  return html`<div class="min-h-screen flex items-center justify-center px-4 py-12" style=${{background:'linear-gradient(135deg,#F0FDF4 0%,#F8FAFB 40%,#EFF6FF 100%)'}}>
+    <div class="w-full max-w-xl transition-all duration-700 ${vis?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}">
+
+      <!-- Logo -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl green-gradient shadow-lg mb-4">
+          <${Icon} name="mapPin" size=${32} color="#fff"/>
+        </div>
+        <h1 class="text-2xl font-extrabold text-gray-900 mb-1">Googleマップ集客診断</h1>
+        <p class="text-sm text-gray-500">ビジネスプロフィールを連携して、あなたのお店のMEO対策状況をAIが無料で診断します</p>
+      </div>
+
+      <!-- Main Card -->
+      <div class="card p-6 mb-4">
+        <div class="flex items-center gap-2 mb-4">
+          <${Icon} name="link2" size=${18} color="#41B25D"/>
+          <h2 class="text-base font-bold text-gray-900">Googleビジネスプロフィールを連携</h2>
+        </div>
+        <p class="text-sm text-gray-500 mb-5 leading-relaxed">
+          ビジネスプロフィールの権限を共有いただくと、実際のデータをもとに<span class="text-brand-600 font-semibold">表示回数・ルート検索・クチコミ・AI検索順位</span>などを自動分析し、具体的な改善施策をご提案します。
+        </p>
+
+        <!-- Google OAuth Button -->
+        <button onClick=${onConnect}
+          class="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-200 rounded-xl px-6 py-3.5 text-sm font-semibold text-gray-700 hover:border-brand-400 hover:shadow-md transition-all mb-3 group">
+          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          <span>Googleアカウントで連携する</span>
+          <${Icon} name="chevRight" size=${16} color="#9CA3AF" cls="group-hover:translate-x-1 transition-transform"/>
+        </button>
+
+        <div class="relative flex items-center justify-center my-4">
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
+          <span class="relative bg-white px-3 text-xs text-gray-400">または</span>
+        </div>
+
+        <!-- Demo Button -->
+        <button onClick=${onDemo}
+          class="w-full flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-6 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all">
+          <${Icon} name="eye" size=${16}/>
+          <span>デモデータで診断を体験する</span>
+        </button>
+      </div>
+
+      <!-- Features Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        ${features.map((f,i)=>html`<div key=${i} class="card p-3 text-center anim-fade" style=${{animationDelay:(i*80+200)+'ms'}}>
+          <div class="w-9 h-9 mx-auto rounded-lg green-gradient-subtle flex items-center justify-center mb-2">
+            <${Icon} name=${f.icon} size=${16} color="#41B25D"/>
+          </div>
+          <div class="text-xs font-semibold text-gray-800 mb-0.5">${f.title}</div>
+          <div class="text-[10px] text-gray-400">${f.desc}</div>
+        </div>`)}
+      </div>
+
+      <!-- Trust -->
+      <div class="text-center">
+        <div class="inline-flex items-center gap-4 text-[11px] text-gray-400">
+          <span class="flex items-center gap-1"><${Icon} name="shield" size=${12} color="#41B25D"/> SSL暗号化通信</span>
+          <span class="flex items-center gap-1"><${Icon} name="check" size=${12} color="#41B25D"/> 完全無料</span>
+          <span class="flex items-center gap-1"><${Icon} name="clock" size=${12} color="#41B25D"/> 診断3分</span>
+        </div>
+        <p class="text-[10px] text-gray-400 mt-2">Powered by <span class="font-semibold text-gray-500">店舗集客のミカタ</span>（株式会社Conduct）</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ===== LINE CTA SECTION =====
+function LineCTA(){
+  const LINE_URL='https://lin.ee/uXuoJwP';
+  return html`<section class="mt-8 mb-6 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="relative overflow-hidden rounded-2xl" style=${{background:'linear-gradient(135deg,#41B25D,#2F9A4A)'}}>
+      <!-- Decorative -->
+      <div class="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10" style=${{background:'radial-gradient(circle,#fff 0%,transparent 70%)',transform:'translate(30%,-30%)'}}/>
+      <div class="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-10" style=${{background:'radial-gradient(circle,#fff 0%,transparent 70%)',transform:'translate(-30%,30%)'}}/>
+
+      <div class="relative px-6 py-10 sm:px-10 sm:py-12 flex flex-col lg:flex-row items-center gap-8">
+        <!-- Left: Text -->
+        <div class="flex-1 text-center lg:text-left">
+          <div class="inline-flex items-center gap-2 bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full mb-4">
+            <${Icon} name="sparkles" size=${14} color="#fff"/>
+            <span>無料相談受付中</span>
+          </div>
+          <h3 class="text-2xl sm:text-3xl font-extrabold text-white mb-3 leading-tight">
+            MEO対策、一人で<br class="sm:hidden"/>悩んでいませんか？
+          </h3>
+          <p class="text-white/80 text-sm sm:text-base leading-relaxed mb-2">
+            診断結果をもとに、あなたのお店に<span class="text-white font-semibold">最適なGoogleマップ集客プラン</span>を無料でご提案します。まずはLINEでお気軽にご相談ください。
+          </p>
+          <div class="flex flex-wrap items-center justify-center lg:justify-start gap-3 text-white/70 text-xs mt-4">
+            <span class="flex items-center gap-1"><${Icon} name="check" size=${12} color="#fff"/> 相談無料</span>
+            <span class="flex items-center gap-1"><${Icon} name="check" size=${12} color="#fff"/> 無理な勧誘なし</span>
+            <span class="flex items-center gap-1"><${Icon} name="check" size=${12} color="#fff"/> 最短即日対応</span>
+          </div>
+        </div>
+
+        <!-- Right: CTA -->
+        <div class="flex flex-col items-center gap-4 flex-shrink-0">
+          <a href=${LINE_URL} target="_blank" rel="noopener noreferrer"
+            class="flex items-center gap-3 bg-white text-brand-700 font-bold text-base px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="#06C755"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.349 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+            LINEで無料相談する
+          </a>
+
+          <div class="text-center">
+            <p class="text-white/90 text-xs font-semibold">店舗集客のミカタ</p>
+            <p class="text-white/60 text-[10px]">by 株式会社Conduct</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>`;
+}
+
+// ===== MAIN DASHBOARD =====
+function Dashboard({storeData, isDemo}){
+  // Use real data if available, otherwise fall back to demo constants
+  const store=storeData?.store || STORE;
+  const isReal=!!(storeData && storeData._real);
+
+  // Convert GBP kpi object to KPI card array format
+  const kpi=useMemo(()=>{
+    if(!storeData?.kpi) return KPI;
+    const k=storeData.kpi;
+    return [
+      {id:'views',label:'表示回数',value:k.views||0,prev:k.views?Math.round(k.views/(1+(k.viewsDelta||0)/100)):0,icon:'eye',unit:'回',period:'過去28日'},
+      {id:'routes',label:'ルート検索',value:k.directions||0,prev:0,icon:'route',unit:'回',period:'過去28日'},
+      {id:'calls',label:'電話タップ',value:k.calls||0,prev:0,icon:'phone',unit:'回',period:'過去28日'},
+      {id:'clicks',label:'ウェブサイト',value:k.website||0,prev:0,icon:'globe',unit:'クリック',period:'過去28日'},
+    ];
+  },[storeData]);
+
+  const viewsTrend=storeData?.viewsTrend || VIEWS_TREND;
+  const searchQueries=storeData?.searchQueries || SEARCH_QUERIES;
+  const aioRankings=AIO_RANKINGS; // AIO is always simulated for now
+  const reviewsRecent=storeData?.reviews || REVIEWS_RECENT;
+
+  const meo=useMemo(()=>calcMeoScore(store,kpi,aioRankings),[store,kpi,aioRankings]);
+  const rank=getMeoRank(meo.pct);
+
+  // Generate recommendations based on scores
+  const recs=useMemo(()=>{
+    const r=[];
+    if(meo.scores.reviews.pct<80) r.push({icon:'message',title:'クチコミ返信率を100%に',desc:'未返信のクチコミが確認されます。24時間以内の返信を徹底し、キーワードを含めた個別返信を行いましょう。返信率が高いほどGoogleの評価が上がります。',priority:'high'});
+    if(meo.scores.visibility.pct<80) r.push({icon:'eye',title:'検索表示回数をさらに伸ばす',desc:'投稿頻度を週2回以上に増やし、写真付きの最新情報を発信しましょう。季節のキーワードを投稿に含めると検索露出が増加します。',priority:'high'});
+    if(meo.scores.aio.pct<80) r.push({icon:'bot',title:'AI検索（AIO）対策を強化',desc:'構造化データの実装、FAQ形式のコンテンツ作成、専門性の高い情報発信でAI検索エンジンからの評価を高めましょう。',priority:'mid'});
+    if(meo.scores.engagement.pct<80) r.push({icon:'camera',title:'写真・動画コンテンツを充実',desc:'店舗写真を月10枚以上追加し、30秒の紹介動画も投稿しましょう。視覚的なコンテンツが充実するとCTRが35%以上向上します。',priority:'mid'});
+    if(meo.scores.basic.pct<100) r.push({icon:'settings',title:'基本情報を完全に整備',desc:'営業時間の祝日設定、属性情報、サービス一覧を100%入力しましょう。情報の完全性はローカル検索ランキングの基本要素です。',priority:'low'});
+    r.push({icon:'target',title:'競合分析を定期的に実施',desc:'周辺の競合店3〜5店のクチコミ数・評価・投稿頻度を月1回チェックし、差別化ポイントを見つけましょう。',priority:'low'});
+    return r;
+  },[meo]);
+
+  return html`<div class="min-h-screen bg-[#F8FAFB]">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl green-gradient flex items-center justify-center">
+              <${Icon} name="mapPin" size=${18} color="#fff"/>
+            </div>
+            <div>
+              <h1 class="text-base font-bold text-gray-900 leading-tight">MEO Dashboard</h1>
+              <p class="text-[11px] text-gray-400">Googleマップ集客診断</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="hidden sm:flex items-center gap-2 ${isReal?'bg-brand-50 text-brand-700':'bg-amber-50 text-amber-700'} text-xs font-medium px-3 py-1.5 rounded-full">
+              <div class="w-2 h-2 rounded-full ${isReal?'bg-brand-500':'bg-amber-500'} animate-pulse"/>
+              <span>${isReal?'ビジネスプロフィール連携中':'デモモード'}</span>
+            </div>
+            <button class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
+              <${Icon} name="settings" size=${16}/>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+      <!-- Store Info Bar -->
+      <div class="card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 anim-fade">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl green-gradient flex items-center justify-center text-white text-lg font-black">
+            ${store.name.charAt(0)}
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-gray-900">${store.name}</h2>
+            <div class="flex items-center gap-3 text-xs text-gray-500">
+              <span class="flex items-center gap-1"><${Icon} name="mapPin" size=${12}/> ${store.address}</span>
+              <span class="flex items-center gap-1 text-brand-600 font-medium"><${Icon} name="circleDot" size=${12} color="#41B25D"/> ${store.status || '営業中'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-1">
+            <${Stars} rating=${store.rating} size=${14}/>
+            <span class="text-sm font-bold text-gray-700 ml-1">${store.rating}</span>
+            <span class="text-xs text-gray-400">(${store.reviewCount}件)</span>
+          </div>
+          <div class="flex items-center gap-1 text-xs text-gray-500">
+            <${Icon} name="camera" size=${13}/> ${store.photoCount || 0}枚
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        ${kpi.map((k,i)=>html`<${KpiCard} key=${k.id} data=${k} delay=${i*100}/>`)}
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <!-- Trend Chart -->
+        <div class="lg:col-span-3 card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-base font-bold text-gray-900">表示回数トレンド</h3>
+              <p class="text-xs text-gray-400">過去6ヶ月間の推移</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 rounded bg-brand-500"></span> 表示回数</span>
+            </div>
+          </div>
+          <${LineChart} data=${viewsTrend}/>
+        </div>
+
+        <!-- Search Queries -->
+        <div class="lg:col-span-2 card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-base font-bold text-gray-900">検索キーワード</h3>
+              <p class="text-xs text-gray-400">表示につながったキーワード TOP8</p>
+            </div>
+            <${Icon} name="search" size=${16} color="#9CA3AF"/>
+          </div>
+          <${QueryBars} data=${searchQueries}/>
+        </div>
+      </div>
+
+      <!-- AIO Rankings -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg green-gradient flex items-center justify-center">
+              <${Icon} name="bot" size=${16} color="#fff"/>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-gray-900">AI検索エンジン順位（AIO）</h3>
+              <p class="text-xs text-gray-400">各AIからの検索結果における表示順位</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-[10px]">
+            <span class="bg-brand-50 text-brand-700 px-2 py-0.5 rounded font-semibold">1-3位</span>
+            <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold">4-5位</span>
+            <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-semibold">6-10位</span>
+            <span class="bg-red-50 text-red-600 px-2 py-0.5 rounded font-semibold">11位+</span>
+          </div>
+        </div>
+        <div class="mt-4">
+          <${AioTable} data=${aioRankings}/>
+        </div>
+      </div>
+
+      <!-- MEO Score + Recommendations -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Score Panel -->
+        <div class="card p-6 text-center">
+          <div class="flex items-center justify-center gap-2 mb-4">
+            <${Icon} name="award" size=${18} color="#41B25D"/>
+            <h3 class="text-base font-bold text-gray-900">MEOスコア</h3>
+          </div>
+          <div class="mb-4">
+            <${ScoreRing} value=${meo.pct} color=${rank.color}/>
+          </div>
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-xl mb-4" style=${{background:rank.bg}}>
+            <span class="rank-badge w-8 h-8 text-lg" style=${{background:rank.color==='#41B25D'?'linear-gradient(135deg,#41B25D,#56B877)':rank.color}}>${rank.rank}</span>
+            <span class="text-sm font-bold" style=${{color:rank.color}}>${rank.title}</span>
+          </div>
+          <div class="mt-4">
+            <${ScoreBars} scores=${meo.scores}/>
+          </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="lg:col-span-2 space-y-3">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-8 h-8 rounded-lg green-gradient flex items-center justify-center">
+              <${Icon} name="rocket" size=${16} color="#fff"/>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-gray-900">改善アクション</h3>
+              <p class="text-xs text-gray-400">スコアを上げるための具体的な施策</p>
+            </div>
+          </div>
+          ${recs.map((r,i)=>html`<${RecCard} key=${i} ...${r} delay=${i*80}/>`)}
+        </div>
+      </div>
+
+      <!-- Recent Reviews -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <${Icon} name="message" size=${18} color="#41B25D"/>
+            <h3 class="text-base font-bold text-gray-900">最近のクチコミ</h3>
+          </div>
+          <span class="text-xs text-gray-400">${store.reviewCount}件のクチコミ</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          ${reviewsRecent.map((r,i)=>html`<div key=${i} class="p-4 bg-gray-50 rounded-xl anim-fade" style=${{animationDelay:i*80+'ms'}}>
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full green-gradient flex items-center justify-center text-white text-xs font-bold">${r.name.charAt(0)}</div>
+                <div>
+                  <span class="text-sm font-semibold text-gray-800">${r.name}</span>
+                  <span class="text-xs text-gray-400 ml-2">${r.date}</span>
+                </div>
+              </div>
+              <${Stars} rating=${r.rating} size=${12}/>
+            </div>
+            <p class="text-sm text-gray-600 leading-relaxed">${r.text}</p>
+          </div>`)}
+        </div>
+      </div>
+    </main>
+
+    <!-- LINE CTA -->
+    <${LineCTA}/>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-200 mt-8 py-6 text-center text-xs text-gray-400">
+      MEO Dashboard — Googleマップ集客診断ツール
+    </footer>
+  </div>`;
+}
+
+// ===== APP ROUTER =====
+function App(){
+  const [screen,setScreen]=useState('connect'); // 'connect' | 'dashboard' | 'loading'
+  const [storeData,setStoreData]=useState(null);
+  const [isDemo,setIsDemo]=useState(false);
+  const [loadingMsg,setLoadingMsg]=useState('');
+
+  // On mount, check if user just returned from OAuth
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    if(params.get('auth')==='success'){
+      // OAuth succeeded — fetch real data
+      window.history.replaceState({},'','/');
+      setScreen('loading');
+      setLoadingMsg('ビジネスプロフィールのデータを取得中...');
+      fetchGBPData();
+    } else if(params.get('auth')==='error'){
+      alert('Google連携に失敗しました: '+(params.get('reason')||'不明なエラー'));
+      window.history.replaceState({},'','/');
+    } else {
+      // Check if already authenticated
+      fetch('/api/auth/status').then(r=>r.json()).then(d=>{
+        if(d.authenticated){
+          setScreen('loading');
+          setLoadingMsg('データを読み込み中...');
+          fetchGBPData();
+        }
+      }).catch(()=>{});
+    }
+  },[]);
+
+  async function fetchGBPData(){
+    try{
+      const res=await fetch('/api/gbp/dashboard');
+      const json=await res.json();
+      if(json.status==='OK' && json.data){
+        setStoreData(json.data);
+        setIsDemo(false);
+        setScreen('dashboard');
+      } else {
+        // Fall back to demo if data fetch failed
+        console.warn('GBP data fetch issue:',json.message||json);
+        setIsDemo(true);
+        setStoreData(null);
+        setScreen('dashboard');
+      }
+    }catch(e){
+      console.error('GBP fetch error:',e);
+      setIsDemo(true);
+      setStoreData(null);
+      setScreen('dashboard');
+    }
+  }
+
+  const handleConnect=()=>{
+    // Redirect to server-side OAuth endpoint
+    window.location.href='/auth/google';
+  };
+
+  const handleDemo=()=>{
+    setIsDemo(true);
+    setStoreData(null);
+    setScreen('dashboard');
+  };
+
+  if(screen==='loading'){
+    return html`<div class="min-h-screen flex flex-col items-center justify-center gap-4" style=${{background:'linear-gradient(135deg,#F0FDF4 0%,#F8FAFB 40%,#EFF6FF 100%)'}}>
+      <div class="w-16 h-16 rounded-2xl green-gradient shadow-lg flex items-center justify-center">
+        <${Icon} name="mapPin" size=${32} color="#fff"/>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" style=${{animation:'spin 1s linear infinite'}}/>
+        <span class="text-sm font-medium text-gray-600">${loadingMsg}</span>
+      </div>
+      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    </div>`;
+  }
+
+  if(screen==='connect'){
+    return html`<${ConnectScreen} onConnect=${handleConnect} onDemo=${handleDemo}/>`;
+  }
+  return html`<${Dashboard} storeData=${storeData} isDemo=${isDemo}/>`;
+}
+
+// ===== RENDER =====
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${App}/>`);
+</script>
+</body>
+</html>
