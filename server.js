@@ -557,6 +557,31 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ===== Privacy Policy =====
+  if (parsedUrl.pathname === '/privacy') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>プライバシーポリシー - 店舗集客のミカタ</title><style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:2rem;line-height:1.8;color:#333}h1{color:#1a73e8;border-bottom:2px solid #1a73e8;padding-bottom:.5rem}h2{color:#444;margin-top:2rem}a{color:#1a73e8}</style></head><body>
+<h1>プライバシーポリシー</h1>
+<p>最終更新日: 2026年4月6日</p>
+<h2>1. 収集する情報</h2>
+<p>本サービス「店舗集客のミカタ」は、Googleビジネスプロフィール（GBP）の管理権限をお持ちの方が、ご自身のビジネスデータを診断・分析するためのツールです。Google OAuth認証を通じて以下の情報にアクセスします：</p>
+<ul><li>Googleアカウントの基本情報（メールアドレス、名前）</li><li>Googleビジネスプロフィールのパフォーマンスデータ（閲覧数、検索数、アクション数等）</li><li>ビジネスのクチコミ情報</li></ul>
+<h2>2. 情報の利用目的</h2>
+<p>取得した情報は、診断レポートの表示のみに使用し、以下の目的以外では使用しません：</p>
+<ul><li>ビジネスプロフィールのパフォーマンス診断結果の表示</li><li>改善提案の生成</li></ul>
+<h2>3. 情報の保存・共有</h2>
+<p>本サービスは取得したデータを永続的に保存しません。セッション中のみ一時的にメモリ上で保持し、セッション終了後に自動的に削除されます。第三者への情報共有・販売は一切行いません。</p>
+<h2>4. データの安全性</h2>
+<p>すべての通信はHTTPSで暗号化されています。OAuthトークンはサーバーのメモリ上でのみ管理され、データベースやファイルへの永続保存は行いません。</p>
+<h2>5. ユーザーの権利</h2>
+<p>ユーザーはいつでもGoogleアカウントの設定（<a href="https://myaccount.google.com/permissions" target="_blank">https://myaccount.google.com/permissions</a>）からアプリのアクセス権を取り消すことができます。</p>
+<h2>6. お問い合わせ</h2>
+<p>プライバシーに関するお問い合わせは、サービス提供者までご連絡ください。</p>
+<p><a href="/">← トップページに戻る</a></p>
+</body></html>`);
+    return;
+  }
+
   // ===== Static files =====
   let filePath = path.join(__dirname, parsedUrl.pathname === '/' ? 'index.html' : parsedUrl.pathname);
   const ext = path.extname(filePath);
