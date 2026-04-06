@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MEO Dashboard | Googleマップ集客診断</title>
+  <title>店舗集客のミカタ | Googleマップ集客診断</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -31,6 +31,8 @@
     @keyframes pulse2{0%,100%{opacity:1}50%{opacity:.6}}
     @keyframes drawLine{0%{stroke-dashoffset:2000}100%{stroke-dashoffset:0}}
     @keyframes growBar{0%{transform:scaleY(0)}100%{transform:scaleY(1)}}
+    @keyframes linePulse{0%,100%{transform:scale(1);box-shadow:0 4px 20px rgba(6,199,85,.3)}50%{transform:scale(1.06);box-shadow:0 8px 32px rgba(6,199,85,.5)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
     .anim-fade{animation:fadeIn .5s ease-out both}
     .anim-count{animation:countUp .6s ease-out both}
     .anim-slide{animation:slideIn .4s ease-out both}
@@ -45,13 +47,14 @@
     .rank-badge{background:linear-gradient(135deg,#41B25D,#56B877);color:#fff;font-weight:800;border-radius:12px;display:inline-flex;align-items:center;justify-content:center}
     .tooltip{position:relative}
     .tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1F2937;color:#fff;font-size:11px;padding:4px 10px;border-radius:6px;white-space:nowrap;z-index:50}
+    .line-btn-pulse{animation:linePulse 2s ease-in-out infinite}
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
 const html=htm.bind(React.createElement);
-const{useState,useEffect,useRef,useMemo}=React;
+const{useState,useEffect,useRef,useMemo,useCallback}=React;
 
 // ===== SVG Icons (Lucide) =====
 const I={
@@ -94,6 +97,9 @@ const I={
   info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
   alertTriangle:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   circleDot:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>',
+  home:'<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  fileText:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
 };
 function Icon({name,size=20,color='currentColor',cls='',fill='none'}){
   return html`<svg xmlns="http://www.w3.org/2000/svg" width=${size} height=${size} viewBox="0 0 24 24" fill=${fill} stroke=${color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class=${cls} dangerouslySetInnerHTML=${{__html:I[name]||''}}/>`;
@@ -106,10 +112,10 @@ function Stars({rating,size=14}){
 const STORE={name:'麻布グリル 六本木店',address:'東京都港区六本木4-12-3',rating:4.2,reviewCount:187,photoCount:64,phone:'03-6434-XXXX',website:'https://azabu-grill.jp',category:'レストラン',status:'営業中'};
 
 const KPI=[
-  {id:'views',label:'表示回数',value:12847,prev:11203,icon:'eye',unit:'回',period:'過去28日'},
-  {id:'routes',label:'ルート検索',value:1432,prev:1289,icon:'route',unit:'回',period:'過去28日'},
-  {id:'calls',label:'電話タップ',value:342,prev:301,icon:'phone',unit:'回',period:'過去28日'},
-  {id:'clicks',label:'ウェブサイト',value:876,prev:793,icon:'globe',unit:'クリック',period:'過去28日'},
+  {id:'views',label:'表示回数',value:12847,prev:11203,icon:'eye',unit:'回',period:'過去28日',color:'#3B82F6',bg:'#EFF6FF'},
+  {id:'routes',label:'ルート検索',value:1432,prev:1289,icon:'route',unit:'回',period:'過去28日',color:'#8B5CF6',bg:'#F5F3FF'},
+  {id:'calls',label:'電話タップ',value:342,prev:301,icon:'phone',unit:'回',period:'過去28日',color:'#F59E0B',bg:'#FFFBEB'},
+  {id:'clicks',label:'ウェブサイト',value:876,prev:793,icon:'globe',unit:'クリック',period:'過去28日',color:'#EC4899',bg:'#FDF2F8'},
 ];
 
 const VIEWS_TREND=[
@@ -133,13 +139,13 @@ const SEARCH_QUERIES=[
 ];
 
 const AIO_RANKINGS=[
-  {keyword:'六本木 ランチ おすすめ',google:3,chatgpt:5,gemini:4,claude:2,perplexity:3},
-  {keyword:'六本木 レストラン デート',google:5,chatgpt:8,gemini:6,claude:4,perplexity:5},
-  {keyword:'港区 ディナー 個室',google:7,chatgpt:12,gemini:9,claude:7,perplexity:8},
-  {keyword:'六本木 イタリアン',google:4,chatgpt:6,gemini:5,claude:3,perplexity:4},
-  {keyword:'麻布十番 グリル',google:1,chatgpt:2,gemini:1,claude:1,perplexity:1},
-  {keyword:'六本木 ステーキ ランチ',google:8,chatgpt:15,gemini:11,claude:9,perplexity:10},
-  {keyword:'六本木 おしゃれ レストラン',google:6,chatgpt:9,gemini:7,claude:5,perplexity:6},
+  {keyword:'六本木 ランチ おすすめ',google:3,chatgpt:5,gemini:4,claude:2},
+  {keyword:'六本木 レストラン デート',google:5,chatgpt:8,gemini:6,claude:4},
+  {keyword:'港区 ディナー 個室',google:7,chatgpt:12,gemini:9,claude:7},
+  {keyword:'六本木 イタリアン',google:4,chatgpt:6,gemini:5,claude:3},
+  {keyword:'麻布十番 グリル',google:1,chatgpt:2,gemini:1,claude:1},
+  {keyword:'六本木 ステーキ ランチ',google:8,chatgpt:15,gemini:11,claude:9},
+  {keyword:'六本木 おしゃれ レストラン',google:6,chatgpt:9,gemini:7,claude:5},
 ];
 
 const REVIEWS_RECENT=[
@@ -149,45 +155,48 @@ const REVIEWS_RECENT=[
   {name:'A.Suzuki',rating:3,text:'味は良いが価格がやや高め。ランチならコスパ良いです。',date:'3週間前'},
 ];
 
+// Demo review count data by period
+const REVIEW_COUNTS_DEMO={
+  '3m':{total:187,newReviews:28,avgRating:4.2,distribution:[3,5,12,62,105]},
+  '6m':{total:187,newReviews:54,avgRating:4.1,distribution:[5,9,20,58,95]},
+  '1y':{total:187,newReviews:89,avgRating:4.0,distribution:[8,14,30,55,80]},
+  '3y':{total:187,newReviews:187,avgRating:3.9,distribution:[12,20,38,52,65]},
+};
+
 // ===== MEO SCORE ENGINE =====
 function calcMeoScore(store,kpi,aio){
   const scores={};
-  // Basic info (20pts)
   let basic=0;
   if(store.name)basic+=3;if(store.phone)basic+=3;if(store.website)basic+=4;
   if(store.category)basic+=3;if(store.address)basic+=3;if(store.status==='営業中')basic+=4;
   scores.basic={score:basic,max:20,pct:Math.round(basic/20*100),label:'基本情報'};
-  // Reviews (25pts)
   let rev=0;
   if(store.rating>=4.0)rev+=8;else if(store.rating>=3.5)rev+=5;else rev+=2;
   if(store.reviewCount>=100)rev+=8;else if(store.reviewCount>=50)rev+=5;else if(store.reviewCount>=20)rev+=3;
   rev+=Math.min(9,Math.round(store.rating*2));
   scores.reviews={score:Math.min(25,rev),max:25,pct:Math.round(Math.min(25,rev)/25*100),label:'クチコミ'};
-  // Visibility (25pts)
   let vis=0;
-  const viewGrowth=(kpi[0].value-kpi[0].prev)/kpi[0].prev;
+  const kpiArr=Array.isArray(kpi)?kpi:KPI;
+  const viewGrowth=(kpiArr[0].value-kpiArr[0].prev)/kpiArr[0].prev;
   if(viewGrowth>0.15)vis+=10;else if(viewGrowth>0.05)vis+=7;else if(viewGrowth>0)vis+=4;
-  if(kpi[0].value>10000)vis+=8;else if(kpi[0].value>5000)vis+=5;else vis+=2;
-  const ctr=(kpi[1].value+kpi[2].value+kpi[3].value)/kpi[0].value;
+  if(kpiArr[0].value>10000)vis+=8;else if(kpiArr[0].value>5000)vis+=5;else vis+=2;
+  const ctr=(kpiArr[1].value+kpiArr[2].value+kpiArr[3].value)/kpiArr[0].value;
   if(ctr>0.2)vis+=7;else if(ctr>0.1)vis+=5;else vis+=2;
   scores.visibility={score:Math.min(25,vis),max:25,pct:Math.round(Math.min(25,vis)/25*100),label:'検索露出'};
-  // AIO (15pts)
   let aioS=0;
-  const avgRank=aio.reduce((s,a)=>(s+a.google+a.chatgpt+a.gemini+a.claude+a.perplexity),0)/(aio.length*5);
+  const avgRank=aio.reduce((s,a)=>(s+a.google+a.chatgpt+a.gemini+a.claude),0)/(aio.length*4);
   if(avgRank<=3)aioS+=15;else if(avgRank<=5)aioS+=12;else if(avgRank<=8)aioS+=8;else if(avgRank<=12)aioS+=4;else aioS+=1;
   scores.aio={score:aioS,max:15,pct:Math.round(aioS/15*100),label:'AI検索'};
-  // Engagement (15pts)
   let eng=0;
   if(store.photoCount>=50)eng+=6;else if(store.photoCount>=20)eng+=4;else eng+=1;
-  const routeRate=kpi[1].value/kpi[0].value;
+  const routeRate=kpiArr[1].value/kpiArr[0].value;
   if(routeRate>0.1)eng+=5;else if(routeRate>0.05)eng+=3;else eng+=1;
-  const callRate=kpi[2].value/kpi[0].value;
+  const callRate=kpiArr[2].value/kpiArr[0].value;
   if(callRate>0.02)eng+=4;else if(callRate>0.01)eng+=2;else eng+=1;
   scores.engagement={score:Math.min(15,eng),max:15,pct:Math.round(Math.min(15,eng)/15*100),label:'エンゲージメント'};
 
   const total=Object.values(scores).reduce((s,v)=>s+v.score,0);
-  const maxTotal=100;
-  return{scores,total,maxTotal,pct:Math.round(total/maxTotal*100)};
+  return{scores,total,maxTotal:100,pct:Math.round(total/100*100)};
 }
 
 function getMeoRank(pct){
@@ -200,7 +209,6 @@ function getMeoRank(pct){
 
 // ===== COMPONENTS =====
 
-// Animated Number
 function AnimNum({value,duration=1200}){
   const[dv,setDv]=useState(0);
   useEffect(()=>{
@@ -216,16 +224,18 @@ function AnimNum({value,duration=1200}){
   return html`<span>${dv.toLocaleString()}</span>`;
 }
 
-// KPI Card
+// KPI Card - color per item
 function KpiCard({data,delay=0}){
   const diff=data.value-data.prev;
-  const pct=((diff/data.prev)*100).toFixed(1);
+  const pct=data.prev?((diff/data.prev)*100).toFixed(1):'0.0';
   const up=diff>=0;
+  const c=data.color||'#3B82F6';
+  const bg=data.bg||'#EFF6FF';
   return html`<div class="card p-5 anim-fade" style=${{animationDelay:delay+'ms'}}>
     <div class="flex items-center justify-between mb-3">
       <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">${data.label}</span>
-      <div class="w-9 h-9 rounded-lg green-gradient-subtle flex items-center justify-center">
-        <${Icon} name=${data.icon} size=${18} color="#41B25D"/>
+      <div class="w-9 h-9 rounded-lg flex items-center justify-center" style=${{background:bg}}>
+        <${Icon} name=${data.icon} size=${18} color=${c}/>
       </div>
     </div>
     <div class="text-3xl font-extrabold text-gray-900 mb-1"><${AnimNum} value=${data.value}/></div>
@@ -238,7 +248,7 @@ function KpiCard({data,delay=0}){
   </div>`;
 }
 
-// Mini Line Chart (SVG)
+// Line Chart
 function LineChart({data,width=600,height=200}){
   const pad={t:20,r:20,b:35,l:50};
   const w=width-pad.l-pad.r, h=height-pad.t-pad.b;
@@ -258,21 +268,22 @@ function LineChart({data,width=600,height=200}){
     ${gridLines}
     <defs>
       <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#41B25D" stopOpacity="0.2"/>
-        <stop offset="100%" stopColor="#41B25D" stopOpacity="0.01"/>
+        <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.15"/>
+        <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.01"/>
       </linearGradient>
     </defs>
     <path d=${area} fill="url(#areaGrad)"/>
-    <path d=${line} fill="none" stroke="#41B25D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+    <path d=${line} fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
       style=${{strokeDasharray:2000,animation:'drawLine 1.5s ease-out forwards'}}/>
-    ${pts.map((p,i)=>html`<circle key=${i} cx=${p.x} cy=${p.y} r="4" fill="#fff" stroke="#41B25D" strokeWidth="2.5"/>`)}
+    ${pts.map((p,i)=>html`<circle key=${i} cx=${p.x} cy=${p.y} r="4" fill="#fff" stroke="#3B82F6" strokeWidth="2.5"/>`)}
     ${data.map((d,i)=>html`<text key=${i} x=${pts[i].x} y=${pad.t+h+20} textAnchor="middle" fill="#6B7280" fontSize="11" fontWeight="500">${d.month}</text>`)}
   </svg>`;
 }
 
-// Horizontal Bar for search queries
+// Search Query Bars - gradient colors
 function QueryBars({data}){
   const maxV=Math.max(...data.map(d=>d.views));
+  const barColors=['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#06B6D4','#F97316','#6366F1'];
   return html`<div class="space-y-3">
     ${data.map((d,i)=>html`<div key=${i} class="anim-slide" style=${{animationDelay:i*60+'ms'}}>
       <div class="flex items-center justify-between mb-1">
@@ -283,39 +294,38 @@ function QueryBars({data}){
         <span class="text-xs font-semibold text-gray-500">${d.views.toLocaleString()} <span class="text-gray-400 font-normal">(${d.pct}%)</span></span>
       </div>
       <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div class="h-full rounded-full transition-all duration-700 ease-out" style=${{width:(d.views/maxV*100)+'%',background:'linear-gradient(90deg,#41B25D,#56B877)',animationDelay:i*60+'ms'}}/>
+        <div class="h-full rounded-full transition-all duration-700 ease-out" style=${{width:(d.views/maxV*100)+'%',background:barColors[i%barColors.length]}}/>
       </div>
     </div>`)}
   </div>`;
 }
 
-// AIO Ranking Table
+// AIO Ranking Table - without Perplexity
 function AioTable({data}){
   const engines=[
-    {key:'google',label:'Google',icon:'🔍',color:'#4285F4'},
-    {key:'chatgpt',label:'ChatGPT',icon:'🤖',color:'#10A37F'},
-    {key:'gemini',label:'Gemini',icon:'✨',color:'#8E75B2'},
-    {key:'claude',label:'Claude',icon:'🧠',color:'#D97706'},
-    {key:'perplexity',label:'Perplexity',icon:'🔮',color:'#20808D'},
+    {key:'google',label:'Google',icon:'G',color:'#4285F4',bg:'#EFF6FF'},
+    {key:'chatgpt',label:'ChatGPT',icon:'C',color:'#10A37F',bg:'#ECFDF5'},
+    {key:'gemini',label:'Gemini',icon:'G',color:'#8E75B2',bg:'#F5F3FF'},
+    {key:'claude',label:'Claude',icon:'C',color:'#D97706',bg:'#FFFBEB'},
   ];
   const rankBadge=(v)=>{
-    const c=v<=3?'bg-brand-50 text-brand-700 font-bold':v<=5?'bg-blue-50 text-blue-700':v<=10?'bg-gray-100 text-gray-600':'bg-red-50 text-red-600';
+    const c=v<=3?'bg-emerald-50 text-emerald-700 font-bold':v<=5?'bg-blue-50 text-blue-700':v<=10?'bg-gray-100 text-gray-600':'bg-red-50 text-red-600';
     return html`<span class="inline-flex items-center justify-center w-8 h-6 rounded text-xs ${c}">${v}</span>`;
   };
   return html`<div class="overflow-x-auto -mx-5 px-5">
-    <table class="w-full text-sm" style=${{minWidth:'700px'}}>
+    <table class="w-full text-sm" style=${{minWidth:'600px'}}>
       <thead>
         <tr class="border-b border-gray-200">
           <th class="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style=${{minWidth:'200px'}}>キーワード</th>
-          ${engines.map(e=>html`<th key=${e.key} class="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-            <span class="mr-0.5">${e.icon}</span>${e.label}
+          ${engines.map(e=>html`<th key=${e.key} class="text-center py-3 px-2 text-xs font-semibold whitespace-nowrap" style=${{color:e.color}}>
+            ${e.label}
           </th>`)}
           <th class="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">平均</th>
         </tr>
       </thead>
       <tbody>
         ${data.map((row,i)=>{
-          const avg=((row.google+row.chatgpt+row.gemini+row.claude+row.perplexity)/5).toFixed(1);
+          const avg=((row.google+row.chatgpt+row.gemini+row.claude)/4).toFixed(1);
           return html`<tr key=${i} class="border-b border-gray-100 hover:bg-gray-50 transition-colors anim-fade" style=${{animationDelay:i*80+'ms'}}>
             <td class="py-3 px-3 whitespace-nowrap">
               <div class="flex items-center gap-2">
@@ -361,30 +371,36 @@ function ScoreRing({value,size=140,strokeWidth=10,color='#41B25D'}){
   </div>`;
 }
 
-// Score Category Bar
+// Score Category Bars - different colors per category
 function ScoreBars({scores}){
+  const catColors={basic:'#3B82F6',reviews:'#F59E0B',visibility:'#8B5CF6',aio:'#EC4899',engagement:'#10B981'};
   const entries=Object.entries(scores);
   return html`<div class="space-y-3">
-    ${entries.map(([k,v],i)=>html`<div key=${k} class="anim-slide" style=${{animationDelay:i*100+'ms'}}>
+    ${entries.map(([k,v],i)=>{
+      const c=catColors[k]||'#41B25D';
+      return html`<div key=${k} class="anim-slide" style=${{animationDelay:i*100+'ms'}}>
       <div class="flex items-center justify-between mb-1">
         <span class="text-sm font-medium text-gray-700">${v.label}</span>
-        <span class="text-sm font-bold" style=${{color:v.pct>=70?'#41B25D':v.pct>=50?'#F59E0B':'#EF4444'}}>${v.score}/${v.max}</span>
+        <span class="text-sm font-bold" style=${{color:c}}>${v.score}/${v.max}</span>
       </div>
       <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
         <div class="h-full rounded-full transition-all duration-1000 ease-out"
-          style=${{width:v.pct+'%',background:v.pct>=70?'linear-gradient(90deg,#41B25D,#56B877)':v.pct>=50?'#F59E0B':'#EF4444'}}/>
+          style=${{width:v.pct+'%',background:c}}/>
       </div>
-    </div>`)}
+    </div>`;
+    })}
   </div>`;
 }
 
 // Recommendation Card
 function RecCard({icon,title,desc,priority,delay=0}){
-  const pColors={high:'bg-red-50 text-red-600 border-red-200',mid:'bg-yellow-50 text-yellow-700 border-yellow-200',low:'bg-brand-50 text-brand-700 border-brand-200'};
+  const pColors={high:'bg-red-50 text-red-600 border-red-200',mid:'bg-yellow-50 text-yellow-700 border-yellow-200',low:'bg-blue-50 text-blue-700 border-blue-200'};
   const pLabels={high:'優先度：高',mid:'優先度：中',low:'優先度：低'};
+  const iconColors={high:'#EF4444',mid:'#F59E0B',low:'#3B82F6'};
+  const iconBgs={high:'#FEF2F2',mid:'#FFFBEB',low:'#EFF6FF'};
   return html`<div class="card p-4 flex gap-4 anim-fade" style=${{animationDelay:delay+'ms'}}>
-    <div class="w-10 h-10 rounded-lg green-gradient-subtle flex items-center justify-center flex-shrink-0 mt-0.5">
-      <${Icon} name=${icon} size=${18} color="#41B25D"/>
+    <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style=${{background:iconBgs[priority]}}>
+      <${Icon} name=${icon} size=${18} color=${iconColors[priority]}/>
     </div>
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 mb-1">
@@ -396,31 +412,68 @@ function RecCard({icon,title,desc,priority,delay=0}){
   </div>`;
 }
 
-// ===== CONNECT SCREEN (INTRO) =====
+// Review Stats Panel
+function ReviewStats({store,period,onPeriodChange}){
+  const periods=[{key:'3m',label:'3ヶ月'},{key:'6m',label:'6ヶ月'},{key:'1y',label:'1年'},{key:'3y',label:'3年'}];
+  const data=REVIEW_COUNTS_DEMO[period];
+  const starLabels=['1','2','3','4','5'];
+  const starColors=['#EF4444','#F97316','#F59E0B','#84CC16','#22C55E'];
+  const maxDist=Math.max(...data.distribution);
+  return html`<div>
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      ${periods.map(p=>html`<button key=${p.key} onClick=${()=>onPeriodChange(p.key)}
+        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${period===p.key?'bg-blue-500 text-white shadow-sm':'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+        ${p.label}
+      </button>`)}
+    </div>
+    <div class="grid grid-cols-3 gap-4 mb-4">
+      <div class="text-center p-3 rounded-xl bg-blue-50">
+        <div class="text-2xl font-extrabold text-blue-600">${data.total}</div>
+        <div class="text-[10px] text-blue-500 font-medium">総クチコミ数</div>
+      </div>
+      <div class="text-center p-3 rounded-xl bg-emerald-50">
+        <div class="text-2xl font-extrabold text-emerald-600">+${data.newReviews}</div>
+        <div class="text-[10px] text-emerald-500 font-medium">新規クチコミ</div>
+      </div>
+      <div class="text-center p-3 rounded-xl bg-amber-50">
+        <div class="text-2xl font-extrabold text-amber-600">${data.avgRating}</div>
+        <div class="text-[10px] text-amber-500 font-medium">平均評価</div>
+      </div>
+    </div>
+    <div class="space-y-2">
+      ${data.distribution.map((count,i)=>html`<div key=${i} class="flex items-center gap-2">
+        <span class="text-xs font-semibold w-4 text-right" style=${{color:starColors[i]}}>${starLabels[i]}</span>
+        <${Icon} name="star" size=${12} color=${starColors[i]} fill=${starColors[i]}/>
+        <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full rounded-full transition-all duration-700" style=${{width:(count/maxDist*100)+'%',background:starColors[i]}}/>
+        </div>
+        <span class="text-xs text-gray-500 w-8 text-right">${count}</span>
+      </div>`)}
+    </div>
+  </div>`;
+}
+
+// ===== CONNECT SCREEN =====
 function ConnectScreen({onConnect, onDemo}){
   const [vis,setVis]=useState(false);
   useEffect(()=>{setTimeout(()=>setVis(true),100)},[]);
   const features=[
-    {icon:'eye',title:'表示回数',desc:'Googleマップでの検索表示データ'},
-    {icon:'route',title:'ルート検索数',desc:'お店への経路検索の回数'},
-    {icon:'phone',title:'電話・クリック数',desc:'電話タップとウェブサイト流入'},
-    {icon:'bot',title:'AI検索順位',desc:'ChatGPT/Gemini等での表示順位'},
-    {icon:'star',title:'クチコミ分析',desc:'評価の推移と改善ポイント'},
-    {icon:'target',title:'MEOスコア',desc:'総合スコアと改善ロードマップ'},
+    {icon:'eye',title:'表示回数',desc:'Googleマップでの検索表示データ',color:'#3B82F6'},
+    {icon:'route',title:'ルート検索数',desc:'お店への経路検索の回数',color:'#8B5CF6'},
+    {icon:'phone',title:'電話・クリック数',desc:'電話タップとウェブサイト流入',color:'#F59E0B'},
+    {icon:'bot',title:'AI検索順位',desc:'ChatGPT/Gemini等での表示順位',color:'#EC4899'},
+    {icon:'star',title:'クチコミ分析',desc:'評価の推移と改善ポイント',color:'#10B981'},
+    {icon:'target',title:'MEOスコア',desc:'総合スコアと改善ロードマップ',color:'#F97316'},
   ];
   return html`<div class="min-h-screen flex items-center justify-center px-4 py-12" style=${{background:'linear-gradient(135deg,#F0FDF4 0%,#F8FAFB 40%,#EFF6FF 100%)'}}>
     <div class="w-full max-w-xl transition-all duration-700 ${vis?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}">
-
-      <!-- Logo -->
       <div class="text-center mb-8">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl green-gradient shadow-lg mb-4">
           <${Icon} name="mapPin" size=${32} color="#fff"/>
         </div>
-        <h1 class="text-2xl font-extrabold text-gray-900 mb-1">Googleマップ集客診断</h1>
+        <h1 class="text-2xl font-extrabold text-gray-900 mb-1">店舗集客のミカタ</h1>
         <p class="text-sm text-gray-500">ビジネスプロフィールを連携して、あなたのお店のMEO対策状況をAIが無料で診断します</p>
       </div>
-
-      <!-- Main Card -->
       <div class="card p-6 mb-4">
         <div class="flex items-center gap-2 mb-4">
           <${Icon} name="link2" size=${18} color="#41B25D"/>
@@ -429,40 +482,31 @@ function ConnectScreen({onConnect, onDemo}){
         <p class="text-sm text-gray-500 mb-5 leading-relaxed">
           ビジネスプロフィールの権限を共有いただくと、実際のデータをもとに<span class="text-brand-600 font-semibold">表示回数・ルート検索・クチコミ・AI検索順位</span>などを自動分析し、具体的な改善施策をご提案します。
         </p>
-
-        <!-- Google OAuth Button -->
         <button onClick=${onConnect}
           class="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-200 rounded-xl px-6 py-3.5 text-sm font-semibold text-gray-700 hover:border-brand-400 hover:shadow-md transition-all mb-3 group">
           <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
           <span>Googleアカウントで連携する</span>
           <${Icon} name="chevRight" size=${16} color="#9CA3AF" cls="group-hover:translate-x-1 transition-transform"/>
         </button>
-
         <div class="relative flex items-center justify-center my-4">
           <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
           <span class="relative bg-white px-3 text-xs text-gray-400">または</span>
         </div>
-
-        <!-- Demo Button -->
         <button onClick=${onDemo}
           class="w-full flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-6 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all">
           <${Icon} name="eye" size=${16}/>
           <span>デモデータで診断を体験する</span>
         </button>
       </div>
-
-      <!-- Features Grid -->
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
         ${features.map((f,i)=>html`<div key=${i} class="card p-3 text-center anim-fade" style=${{animationDelay:(i*80+200)+'ms'}}>
-          <div class="w-9 h-9 mx-auto rounded-lg green-gradient-subtle flex items-center justify-center mb-2">
-            <${Icon} name=${f.icon} size=${16} color="#41B25D"/>
+          <div class="w-9 h-9 mx-auto rounded-lg flex items-center justify-center mb-2" style=${{background:f.color+'15'}}>
+            <${Icon} name=${f.icon} size=${16} color=${f.color}/>
           </div>
           <div class="text-xs font-semibold text-gray-800 mb-0.5">${f.title}</div>
           <div class="text-[10px] text-gray-400">${f.desc}</div>
         </div>`)}
       </div>
-
-      <!-- Trust -->
       <div class="text-center">
         <div class="inline-flex items-center gap-4 text-[11px] text-gray-400">
           <span class="flex items-center gap-1"><${Icon} name="shield" size=${12} color="#41B25D"/> SSL暗号化通信</span>
@@ -480,12 +524,9 @@ function LineCTA(){
   const LINE_URL='https://lin.ee/uXuoJwP';
   return html`<section class="mt-8 mb-6 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
     <div class="relative overflow-hidden rounded-2xl" style=${{background:'linear-gradient(135deg,#41B25D,#2F9A4A)'}}>
-      <!-- Decorative -->
       <div class="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10" style=${{background:'radial-gradient(circle,#fff 0%,transparent 70%)',transform:'translate(30%,-30%)'}}/>
       <div class="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-10" style=${{background:'radial-gradient(circle,#fff 0%,transparent 70%)',transform:'translate(-30%,30%)'}}/>
-
       <div class="relative px-6 py-10 sm:px-10 sm:py-12 flex flex-col lg:flex-row items-center gap-8">
-        <!-- Left: Text -->
         <div class="flex-1 text-center lg:text-left">
           <div class="inline-flex items-center gap-2 bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full mb-4">
             <${Icon} name="sparkles" size=${14} color="#fff"/>
@@ -503,15 +544,12 @@ function LineCTA(){
             <span class="flex items-center gap-1"><${Icon} name="check" size=${12} color="#fff"/> 最短即日対応</span>
           </div>
         </div>
-
-        <!-- Right: CTA -->
         <div class="flex flex-col items-center gap-4 flex-shrink-0">
           <a href=${LINE_URL} target="_blank" rel="noopener noreferrer"
-            class="flex items-center gap-3 bg-white text-brand-700 font-bold text-base px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all">
+            class="line-btn-pulse flex items-center gap-3 bg-white text-brand-700 font-bold text-base px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all cursor-pointer">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="#06C755"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.349 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
             LINEで無料相談する
           </a>
-
           <div class="text-center">
             <p class="text-white/90 text-xs font-semibold">店舗集客のミカタ</p>
             <p class="text-white/60 text-[10px]">by 株式会社Conduct</p>
@@ -522,33 +560,37 @@ function LineCTA(){
   </section>`;
 }
 
+// ===== PDF SAVE =====
+function savePDF(){
+  window.print();
+}
+
 // ===== MAIN DASHBOARD =====
-function Dashboard({storeData, isDemo}){
-  // Use real data if available, otherwise fall back to demo constants
+function Dashboard({storeData, isDemo, onGoHome}){
   const store=storeData?.store || STORE;
   const isReal=!!(storeData && storeData._real);
+  const [reviewPeriod,setReviewPeriod]=useState('3m');
 
-  // Convert GBP kpi object to KPI card array format
   const kpi=useMemo(()=>{
     if(!storeData?.kpi) return KPI;
     const k=storeData.kpi;
     return [
-      {id:'views',label:'表示回数',value:k.views||0,prev:k.views?Math.round(k.views/(1+(k.viewsDelta||0)/100)):0,icon:'eye',unit:'回',period:'過去28日'},
-      {id:'routes',label:'ルート検索',value:k.directions||0,prev:0,icon:'route',unit:'回',period:'過去28日'},
-      {id:'calls',label:'電話タップ',value:k.calls||0,prev:0,icon:'phone',unit:'回',period:'過去28日'},
-      {id:'clicks',label:'ウェブサイト',value:k.website||0,prev:0,icon:'globe',unit:'クリック',period:'過去28日'},
+      {id:'views',label:'表示回数',value:k.views||0,prev:k.views?Math.round(k.views/(1+(k.viewsDelta||0)/100)):0,icon:'eye',unit:'回',period:'過去28日',color:'#3B82F6',bg:'#EFF6FF'},
+      {id:'routes',label:'ルート検索',value:k.directions||0,prev:0,icon:'route',unit:'回',period:'過去28日',color:'#8B5CF6',bg:'#F5F3FF'},
+      {id:'calls',label:'電話タップ',value:k.calls||0,prev:0,icon:'phone',unit:'回',period:'過去28日',color:'#F59E0B',bg:'#FFFBEB'},
+      {id:'clicks',label:'ウェブサイト',value:k.website||0,prev:0,icon:'globe',unit:'クリック',period:'過去28日',color:'#EC4899',bg:'#FDF2F8'},
     ];
   },[storeData]);
 
   const viewsTrend=storeData?.viewsTrend || VIEWS_TREND;
   const searchQueries=storeData?.searchQueries || SEARCH_QUERIES;
-  const aioRankings=AIO_RANKINGS; // AIO is always simulated for now
+  const aioRankings=AIO_RANKINGS;
   const reviewsRecent=storeData?.reviews || REVIEWS_RECENT;
 
   const meo=useMemo(()=>calcMeoScore(store,kpi,aioRankings),[store,kpi,aioRankings]);
   const rank=getMeoRank(meo.pct);
 
-  // Generate recommendations based on scores
+  // Generate at least 5 recommendations
   const recs=useMemo(()=>{
     const r=[];
     if(meo.scores.reviews.pct<80) r.push({icon:'message',title:'クチコミ返信率を100%に',desc:'未返信のクチコミが確認されます。24時間以内の返信を徹底し、キーワードを含めた個別返信を行いましょう。返信率が高いほどGoogleの評価が上がります。',priority:'high'});
@@ -556,31 +598,40 @@ function Dashboard({storeData, isDemo}){
     if(meo.scores.aio.pct<80) r.push({icon:'bot',title:'AI検索（AIO）対策を強化',desc:'構造化データの実装、FAQ形式のコンテンツ作成、専門性の高い情報発信でAI検索エンジンからの評価を高めましょう。',priority:'mid'});
     if(meo.scores.engagement.pct<80) r.push({icon:'camera',title:'写真・動画コンテンツを充実',desc:'店舗写真を月10枚以上追加し、30秒の紹介動画も投稿しましょう。視覚的なコンテンツが充実するとCTRが35%以上向上します。',priority:'mid'});
     if(meo.scores.basic.pct<100) r.push({icon:'settings',title:'基本情報を完全に整備',desc:'営業時間の祝日設定、属性情報、サービス一覧を100%入力しましょう。情報の完全性はローカル検索ランキングの基本要素です。',priority:'low'});
-    r.push({icon:'target',title:'競合分析を定期的に実施',desc:'周辺の競合店3〜5店のクチコミ数・評価・投稿頻度を月1回チェックし、差別化ポイントを見つけましょう。',priority:'low'});
-    return r;
+    // Always include these to ensure at least 5
+    r.push({icon:'target',title:'競合分析を定期的に実施',desc:'周辺の競合店3〜5店のクチコミ数・評価・投稿頻度を月1回チェックし、差別化ポイントを見つけましょう。',priority:'mid'});
+    r.push({icon:'sparkles',title:'Googleビジネスの投稿を活用',desc:'週2回以上の投稿を継続し、季節イベント・新メニュー・キャンペーン情報を定期的に発信。投稿にはキーワードと高品質な写真を含めましょう。',priority:'mid'});
+    r.push({icon:'globe',title:'NAP情報の一貫性を確保',desc:'店舗名・住所・電話番号（NAP）をGoogle・SNS・グルメサイト・自社サイトで完全に統一しましょう。不一致はランキング低下の原因になります。',priority:'high'});
+    r.push({icon:'zap',title:'クチコミ獲得キャンペーンの実施',desc:'来店客にQRコード付きカードを配布し、クチコミ投稿を依頼しましょう。月20件以上のクチコミ獲得が理想的です。',priority:'mid'});
+    r.push({icon:'shield',title:'ネガティブレビューへの対応',desc:'低評価レビューには誠実に返信し、改善策を示しましょう。対応の質が新規顧客の印象を大きく左右します。',priority:'low'});
+    // Deduplicate and limit
+    const seen=new Set();
+    return r.filter(x=>{if(seen.has(x.title))return false;seen.add(x.title);return true;}).slice(0,7);
   },[meo]);
 
   return html`<div class="min-h-screen bg-[#F8FAFB]">
-    <!-- Header -->
     <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
-          <div class="flex items-center gap-3">
+          <button onClick=${onGoHome} class="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
             <div class="w-9 h-9 rounded-xl green-gradient flex items-center justify-center">
               <${Icon} name="mapPin" size=${18} color="#fff"/>
             </div>
-            <div>
-              <h1 class="text-base font-bold text-gray-900 leading-tight">MEO Dashboard</h1>
+            <div class="text-left">
+              <h1 class="text-base font-bold text-gray-900 leading-tight">店舗集客のミカタ</h1>
               <p class="text-[11px] text-gray-400">Googleマップ集客診断</p>
             </div>
-          </div>
+          </button>
           <div class="flex items-center gap-3">
             <div class="hidden sm:flex items-center gap-2 ${isReal?'bg-brand-50 text-brand-700':'bg-amber-50 text-amber-700'} text-xs font-medium px-3 py-1.5 rounded-full">
               <div class="w-2 h-2 rounded-full ${isReal?'bg-brand-500':'bg-amber-500'} animate-pulse"/>
               <span>${isReal?'ビジネスプロフィール連携中':'デモモード'}</span>
             </div>
-            <button class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
-              <${Icon} name="settings" size=${16}/>
+            <button onClick=${savePDF} class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-colors tooltip" data-tip="PDFで保存">
+              <${Icon} name="download" size=${16}/>
+            </button>
+            <button onClick=${onGoHome} class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-brand-600 hover:border-brand-300 hover:bg-brand-50 transition-colors tooltip" data-tip="ホームに戻る">
+              <${Icon} name="home" size=${16}/>
             </button>
           </div>
         </div>
@@ -588,8 +639,7 @@ function Dashboard({storeData, isDemo}){
     </header>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-
-      <!-- Store Info Bar -->
+      <!-- Store Info -->
       <div class="card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 anim-fade">
         <div class="flex items-center gap-3">
           <div class="w-12 h-12 rounded-xl green-gradient flex items-center justify-center text-white text-lg font-black">
@@ -622,7 +672,6 @@ function Dashboard({storeData, isDemo}){
 
       <!-- Charts Row -->
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <!-- Trend Chart -->
         <div class="lg:col-span-3 card p-5">
           <div class="flex items-center justify-between mb-4">
             <div>
@@ -630,13 +679,11 @@ function Dashboard({storeData, isDemo}){
               <p class="text-xs text-gray-400">過去6ヶ月間の推移</p>
             </div>
             <div class="flex items-center gap-3 text-xs">
-              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 rounded bg-brand-500"></span> 表示回数</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 rounded bg-blue-500"></span> 表示回数</span>
             </div>
           </div>
           <${LineChart} data=${viewsTrend}/>
         </div>
-
-        <!-- Search Queries -->
         <div class="lg:col-span-2 card p-5">
           <div class="flex items-center justify-between mb-4">
             <div>
@@ -649,33 +696,49 @@ function Dashboard({storeData, isDemo}){
         </div>
       </div>
 
-      <!-- AIO Rankings -->
-      <div class="card p-5">
-        <div class="flex items-center justify-between mb-1">
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg green-gradient flex items-center justify-center">
-              <${Icon} name="bot" size=${16} color="#fff"/>
+      <!-- Review Stats + AIO Rankings -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Review Stats -->
+        <div class="card p-5">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center" style=${{background:'#FEF3C7'}}>
+              <${Icon} name="star" size=${16} color="#F59E0B" fill="#F59E0B"/>
             </div>
             <div>
-              <h3 class="text-base font-bold text-gray-900">AI検索エンジン順位（AIO）</h3>
-              <p class="text-xs text-gray-400">各AIからの検索結果における表示順位</p>
+              <h3 class="text-base font-bold text-gray-900">クチコミ統計</h3>
+              <p class="text-xs text-gray-400">期間別のクチコミ分析</p>
             </div>
           </div>
-          <div class="flex items-center gap-2 text-[10px]">
-            <span class="bg-brand-50 text-brand-700 px-2 py-0.5 rounded font-semibold">1-3位</span>
-            <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold">4-5位</span>
-            <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-semibold">6-10位</span>
-            <span class="bg-red-50 text-red-600 px-2 py-0.5 rounded font-semibold">11位+</span>
-          </div>
+          <${ReviewStats} store=${store} period=${reviewPeriod} onPeriodChange=${setReviewPeriod}/>
         </div>
-        <div class="mt-4">
-          <${AioTable} data=${aioRankings}/>
+
+        <!-- AIO Rankings -->
+        <div class="lg:col-span-2 card p-5">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center" style=${{background:'#FCE7F3'}}>
+                <${Icon} name="bot" size=${16} color="#EC4899"/>
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-gray-900">AI検索エンジン順位（AIO）</h3>
+                <p class="text-xs text-gray-400">各AIからの検索結果における表示順位</p>
+              </div>
+            </div>
+            <div class="hidden sm:flex items-center gap-2 text-[10px]">
+              <span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-semibold">1-3位</span>
+              <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold">4-5位</span>
+              <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-semibold">6-10位</span>
+              <span class="bg-red-50 text-red-600 px-2 py-0.5 rounded font-semibold">11位+</span>
+            </div>
+          </div>
+          <div class="mt-4">
+            <${AioTable} data=${aioRankings}/>
+          </div>
         </div>
       </div>
 
       <!-- MEO Score + Recommendations -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Score Panel -->
         <div class="card p-6 text-center">
           <div class="flex items-center justify-center gap-2 mb-4">
             <${Icon} name="award" size=${18} color="#41B25D"/>
@@ -692,8 +755,6 @@ function Dashboard({storeData, isDemo}){
             <${ScoreBars} scores=${meo.scores}/>
           </div>
         </div>
-
-        <!-- Recommendations -->
         <div class="lg:col-span-2 space-y-3">
           <div class="flex items-center gap-2 mb-2">
             <div class="w-8 h-8 rounded-lg green-gradient flex items-center justify-center">
@@ -712,7 +773,7 @@ function Dashboard({storeData, isDemo}){
       <div class="card p-5">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
-            <${Icon} name="message" size=${18} color="#41B25D"/>
+            <${Icon} name="message" size=${18} color="#8B5CF6"/>
             <h3 class="text-base font-bold text-gray-900">最近のクチコミ</h3>
           </div>
           <span class="text-xs text-gray-400">${store.reviewCount}件のクチコミ</span>
@@ -735,28 +796,24 @@ function Dashboard({storeData, isDemo}){
       </div>
     </main>
 
-    <!-- LINE CTA -->
     <${LineCTA}/>
 
-    <!-- Footer -->
     <footer class="border-t border-gray-200 mt-8 py-6 text-center text-xs text-gray-400">
-      MEO Dashboard — Googleマップ集客診断ツール
+      店舗集客のミカタ — Googleマップ集客診断ツール by 株式会社Conduct
     </footer>
   </div>`;
 }
 
 // ===== APP ROUTER =====
 function App(){
-  const [screen,setScreen]=useState('connect'); // 'connect' | 'dashboard' | 'loading'
+  const [screen,setScreen]=useState('connect');
   const [storeData,setStoreData]=useState(null);
   const [isDemo,setIsDemo]=useState(false);
   const [loadingMsg,setLoadingMsg]=useState('');
 
-  // On mount, check if user just returned from OAuth
   useEffect(()=>{
     const params=new URLSearchParams(window.location.search);
     if(params.get('auth')==='success'){
-      // OAuth succeeded — fetch real data
       window.history.replaceState({},'','/');
       setScreen('loading');
       setLoadingMsg('ビジネスプロフィールのデータを取得中...');
@@ -765,7 +822,6 @@ function App(){
       alert('Google連携に失敗しました: '+(params.get('reason')||'不明なエラー'));
       window.history.replaceState({},'','/');
     } else {
-      // Check if already authenticated
       fetch('/api/auth/status').then(r=>r.json()).then(d=>{
         if(d.authenticated){
           setScreen('loading');
@@ -785,14 +841,11 @@ function App(){
         setIsDemo(false);
         setScreen('dashboard');
       } else {
-        // Fall back to demo if data fetch failed
-        console.warn('GBP data fetch issue:',json.message||json);
         setIsDemo(true);
         setStoreData(null);
         setScreen('dashboard');
       }
     }catch(e){
-      console.error('GBP fetch error:',e);
       setIsDemo(true);
       setStoreData(null);
       setScreen('dashboard');
@@ -800,7 +853,6 @@ function App(){
   }
 
   const handleConnect=()=>{
-    // Redirect to server-side OAuth endpoint
     window.location.href='/auth/google';
   };
 
@@ -808,6 +860,12 @@ function App(){
     setIsDemo(true);
     setStoreData(null);
     setScreen('dashboard');
+  };
+
+  const handleGoHome=()=>{
+    setScreen('connect');
+    setStoreData(null);
+    setIsDemo(false);
   };
 
   if(screen==='loading'){
@@ -819,14 +877,13 @@ function App(){
         <div class="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" style=${{animation:'spin 1s linear infinite'}}/>
         <span class="text-sm font-medium text-gray-600">${loadingMsg}</span>
       </div>
-      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     </div>`;
   }
 
   if(screen==='connect'){
     return html`<${ConnectScreen} onConnect=${handleConnect} onDemo=${handleDemo}/>`;
   }
-  return html`<${Dashboard} storeData=${storeData} isDemo=${isDemo}/>`;
+  return html`<${Dashboard} storeData=${storeData} isDemo=${isDemo} onGoHome=${handleGoHome}/>`;
 }
 
 // ===== RENDER =====
