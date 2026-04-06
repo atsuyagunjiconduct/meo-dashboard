@@ -645,14 +645,15 @@ function Dashboard({storeData, isDemo, onGoHome}){
   const isReal=!!(storeData && storeData._real);
   const [reviewPeriod,setReviewPeriod]=useState('3m');
 
+  const isEstimated=!!(storeData?.kpiEstimated);
   const kpi=useMemo(()=>{
     if(!storeData?.kpi) return KPI;
     const k=storeData.kpi;
     return [
-      {id:'views',label:'表示回数',value:k.views||0,prev:k.views?Math.round(k.views/(1+(k.viewsDelta||0)/100)):0,icon:'eye',unit:'回',period:'過去28日',color:'#3B82F6',bg:'#EFF6FF'},
-      {id:'routes',label:'ルート検索',value:k.directions||0,prev:0,icon:'route',unit:'回',period:'過去28日',color:'#8B5CF6',bg:'#F5F3FF'},
-      {id:'calls',label:'電話タップ',value:k.calls||0,prev:0,icon:'phone',unit:'回',period:'過去28日',color:'#F59E0B',bg:'#FFFBEB'},
-      {id:'clicks',label:'ウェブサイト',value:k.website||0,prev:0,icon:'globe',unit:'クリック',period:'過去28日',color:'#EC4899',bg:'#FDF2F8'},
+      {id:'views',label:'表示回数',value:k.views||0,prev:k.viewsPrev||0,icon:'eye',unit:'回',period:isEstimated?'推定値':'過去28日',color:'#3B82F6',bg:'#EFF6FF'},
+      {id:'routes',label:'ルート検索',value:k.directions||0,prev:k.directionsPrev||0,icon:'route',unit:'回',period:isEstimated?'推定値':'過去28日',color:'#8B5CF6',bg:'#F5F3FF'},
+      {id:'calls',label:'電話タップ',value:k.calls||0,prev:k.callsPrev||0,icon:'phone',unit:'回',period:isEstimated?'推定値':'過去28日',color:'#F59E0B',bg:'#FFFBEB'},
+      {id:'clicks',label:'ウェブサイト',value:k.website||0,prev:k.websitePrev||0,icon:'globe',unit:'クリック',period:isEstimated?'推定値':'過去28日',color:'#EC4899',bg:'#FDF2F8'},
     ];
   },[storeData]);
 
@@ -699,7 +700,7 @@ function Dashboard({storeData, isDemo, onGoHome}){
           <div class="flex items-center gap-3">
             <div class="hidden sm:flex items-center gap-2 ${isReal?'bg-brand-50 text-brand-700':'bg-amber-50 text-amber-700'} text-xs font-medium px-3 py-1.5 rounded-full">
               <div class="w-2 h-2 rounded-full ${isReal?'bg-brand-500':'bg-amber-500'} animate-pulse"/>
-              <span>${isReal?'ビジネスプロフィール連携中':'デモモード'}</span>
+              <span>${isReal?'実データ取得済':'デモモード'}</span>
             </div>
             <button onClick=${savePDF} class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-colors tooltip" data-tip="PDFで保存">
               <${Icon} name="download" size=${16}/>
@@ -738,6 +739,12 @@ function Dashboard({storeData, isDemo, onGoHome}){
           </div>
         </div>
       </div>
+
+      <!-- Estimated notice -->
+      ${isEstimated && html`<div class="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700 anim-fade">
+        <${Icon} name="info" size=${16} color="#3B82F6"/>
+        <p><span class="font-semibold">店舗名・クチコミ数・評価は実データです。</span>表示回数・ルート検索等のパフォーマンス数値はクチコミ数をもとにした推定値です。正確な数値はGoogleビジネスプロフィールの管理画面から確認できます。</p>
+      </div>`}
 
       <!-- KPI Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

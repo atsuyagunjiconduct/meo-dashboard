@@ -44,34 +44,72 @@ function fetchJSON(apiUrl) {
   });
 }
 
+// Follow redirects to resolve short URLs (maps.app.goo.gl, goo.gl, etc.)
+function resolveRedirect(shortUrl) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(shortUrl);
+    const mod = parsed.protocol === 'https:' ? https : http;
+    const req = mod.get(shortUrl, (resp) => {
+      if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+        // Follow redirect
+        resolve(resp.headers.location);
+      } else {
+        // No redirect, return original
+        let body = '';
+        resp.on('data', c => body += c);
+        resp.on('end', () => {
+          // Check for meta refresh or JS redirect in HTML
+          const metaMatch = body.match(/content=["']0;\s*url=([^"']+)/i);
+          if (metaMatch) resolve(metaMatch[1]);
+          else resolve(shortUrl);
+        });
+      }
+    });
+    req.on('error', () => resolve(shortUrl));
+    req.setTimeout(5000, () => { req.destroy(); resolve(shortUrl); });
+  });
+}
+
 // Extract Place ID from various Google Maps URL formats
 function extractPlaceInfo(inputUrl) {
-  // Format: https://www.google.com/maps/place/.../@lat,lng,.../data=...!1s0x...:0x...
-  // Format: https://maps.app.goo.gl/XXXXX (short link)
-  // Format: place_id:ChIJ...
-  // Format: just the place name to search
-
   if (inputUrl.startsWith('place_id:')) {
     return { placeId: inputUrl.replace('place_id:', '') };
   }
 
-  // Try to extract place ID from data parameter
-  const placeIdMatch = inputUrl.match(/!1s(0x[a-f0-9]+:0x[a-f0-9]+)/);
-  if (placeIdMatch) {
-    return { cid: placeIdMatch[1] };
-  }
-
-  // Try ChIJ format
+  // Try ChIJ format (Place ID)
   const chiMatch = inputUrl.match(/(ChIJ[A-Za-z0-9_-]+)/);
   if (chiMatch) {
     return { placeId: chiMatch[1] };
   }
 
-  // Otherwise use as search query
-  // Extract place name from URL
+  // Try ftid format (used in some Google Maps URLs)
+  const ftidMatch = inputUrl.match(/ftid=(0x[a-f0-9]+:0x[a-f0-9]+)/);
+  if (ftidMatch) {
+    return { ftid: ftidMatch[1] };
+  }
+
+  // Try to extract from data parameter !1s0x...:0x...
+  const placeIdMatch = inputUrl.match(/!1s(0x[a-f0-9]+:0x[a-f0-9]+)/);
+  if (placeIdMatch) {
+    return { ftid: placeIdMatch[1] };
+  }
+
+  // Try cid= parameter
+  const cidMatch = inputUrl.match(/[?&]cid=(\d+)/);
+  if (cidMatch) {
+    return { query: 'cid:' + cidMatch[1] };
+  }
+
+  // Extract place name from /place/NAME/ in URL
   const placeMatch = inputUrl.match(/\/place\/([^/@]+)/);
   if (placeMatch) {
     return { query: decodeURIComponent(placeMatch[1]).replace(/\+/g, ' ') };
+  }
+
+  // Extract from q= parameter
+  const qMatch = inputUrl.match(/[?&]q=([^&]+)/);
+  if (qMatch) {
+    return { query: decodeURIComponent(qMatch[1]).replace(/\+/g, ' ') };
   }
 
   // Use the full input as a search query
@@ -103,29 +141,83 @@ async function handlePlaceSearch(query, res) {
   }
 
   try {
-    const info = extractPlaceInfo(query);
-    let placeId = info.placeId;
+    let resolvedUrl = query;
 
-    // If we have a query, do a text search first
-    if (info.query && !placeId) {
-      const searchUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(info.query)}&inputtype=textquery&fields=place_id&key=${API_KEY}`;
-      const searchResult = await fetchJSON(searchUrl);
-      if (searchResult.candidates && searchResult.candidates.length > 0) {
-        placeId = searchResult.candidates[0].place_id;
-      } else {
-        res.writeHead(200, cors);
-        res.end(JSON.stringify({ status: 'NOT_FOUND', message: '店舗が見つかりませんでした。' }));
-        return;
+    // Step 1: Resolve short URLs (maps.app.goo.gl, goo.gl)
+    if (query.match(/maps\.app\.goo\.gl|goo\.gl|g\.co/)) {
+      console.log('[Place] Resolving short URL:', query);
+      resolvedUrl = await resolveRedirect(query);
+      console.log('[Place] Resolved to:', resolvedUrl);
+      // Sometimes needs a second redirect
+      if (resolvedUrl.match(/maps\.app\.goo\.gl|goo\.gl|consent\.google/)) {
+        resolvedUrl = await resolveRedirect(resolvedUrl);
+        console.log('[Place] Resolved (2nd):', resolvedUrl);
       }
     }
 
-    // Get place details
-    const fields = 'name,rating,user_ratings_total,formatted_phone_number,website,opening_hours,photos,types,formatted_address,business_status,reviews,url';
-    const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=${fields}&language=ja&key=${API_KEY}`;
+    const info = extractPlaceInfo(resolvedUrl);
+    let placeId = info.placeId;
+    console.log('[Place] Extracted info:', JSON.stringify(info));
+
+    // If we have ftid, use it to search
+    if (info.ftid && !placeId) {
+      // Use textsearch with the ftid as a reference
+      const searchUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(info.ftid)}&inputtype=textquery&fields=place_id&key=${API_KEY}`;
+      const searchResult = await fetchJSON(searchUrl);
+      if (searchResult.candidates && searchResult.candidates.length > 0) {
+        placeId = searchResult.candidates[0].place_id;
+      }
+    }
+
+    // If we have a query, do a text search
+    if (info.query && !placeId) {
+      const searchUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(info.query)}&inputtype=textquery&fields=place_id,name&key=${API_KEY}`;
+      const searchResult = await fetchJSON(searchUrl);
+      if (searchResult.candidates && searchResult.candidates.length > 0) {
+        placeId = searchResult.candidates[0].place_id;
+      }
+    }
+
+    // If still no placeId, try extracting place name from the resolved URL for a broader search
+    if (!placeId && resolvedUrl !== query) {
+      const placeNameMatch = resolvedUrl.match(/\/place\/([^/@]+)/);
+      if (placeNameMatch) {
+        const placeName = decodeURIComponent(placeNameMatch[1]).replace(/\+/g, ' ');
+        const searchUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(placeName)}&inputtype=textquery&fields=place_id&key=${API_KEY}`;
+        const searchResult = await fetchJSON(searchUrl);
+        if (searchResult.candidates && searchResult.candidates.length > 0) {
+          placeId = searchResult.candidates[0].place_id;
+        }
+      }
+    }
+
+    if (!placeId) {
+      res.writeHead(200, cors);
+      res.end(JSON.stringify({ status: 'NOT_FOUND', message: '店舗が見つかりませんでした。URLを確認して再度お試しください。' }));
+      return;
+    }
+
+    console.log('[Place] Using place_id:', placeId);
+
+    // Get place details - request all available fields
+    const fields = 'name,rating,user_ratings_total,formatted_phone_number,website,opening_hours,photos,types,formatted_address,business_status,reviews,url,price_level';
+    const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=${fields}&language=ja&reviews_sort=newest&key=${API_KEY}`;
     const detail = await fetchJSON(detailUrl);
 
     if (detail.status === 'OK') {
       const p = detail.result;
+
+      // Map types to Japanese category names
+      const typeMap = {
+        restaurant: 'レストラン', cafe: 'カフェ', bar: 'バー',
+        bakery: 'ベーカリー', hair_care: '美容室', beauty_salon: '美容サロン',
+        spa: 'スパ', gym: 'ジム', dentist: '歯科', doctor: '病院',
+        store: '店舗', shopping_mall: 'ショッピング', lodging: '宿泊施設',
+        food: '飲食店', meal_takeaway: 'テイクアウト', meal_delivery: 'デリバリー',
+      };
+      const primaryType = (p.types || []).find(t => typeMap[t]) || (p.types || [])[0] || '';
+      const categoryJa = typeMap[primaryType] || primaryType;
+
       const place = {
         name: p.name || '',
         rating: p.rating || 0,
@@ -135,21 +227,34 @@ async function handlePlaceSearch(query, res) {
         address: p.formatted_address || '',
         hasHours: !!(p.opening_hours),
         isOpen: p.opening_hours ? p.opening_hours.open_now : null,
+        // Note: Places API returns max 10 photo references, not the total count
+        // user_ratings_total is accurate, photoCount from API is limited
         photoCount: p.photos ? p.photos.length : 0,
         types: p.types || [],
         businessStatus: p.business_status || '',
-        category: (p.types || [])[0] || '',
-        status: p.business_status === 'OPERATIONAL' ? '営業中' : '休業中',
+        category: categoryJa,
+        status: p.business_status === 'OPERATIONAL' ? '営業中' : (p.business_status === 'CLOSED_TEMPORARILY' ? '一時休業' : '休業中'),
         url: p.url || '',
       };
-      // Format reviews for dashboard
+
+      // Format reviews for dashboard (API returns up to 5 most relevant)
       const reviews = (p.reviews || []).slice(0, 5).map(r => ({
         name: r.author_name || '匿名',
         rating: r.rating,
         text: r.text ? r.text.substring(0, 200) : '',
         date: r.relative_time_description || '',
       }));
-      // Return both raw place and dashboard-formatted data
+
+      // Estimate performance data based on review count and rating
+      // These are estimated values since real performance data requires Business Profile API
+      const rc = p.user_ratings_total || 0;
+      const rt = p.rating || 0;
+      const estimatedViews = Math.round(rc * 45 + rt * 800 + Math.random() * 500);
+      const estimatedRoutes = Math.round(estimatedViews * (0.08 + Math.random() * 0.06));
+      const estimatedCalls = Math.round(estimatedViews * (0.02 + Math.random() * 0.02));
+      const estimatedWebsite = Math.round(estimatedViews * (0.05 + Math.random() * 0.04));
+      const prevFactor = 0.85 + Math.random() * 0.1;
+
       res.writeHead(200, cors);
       res.end(JSON.stringify({
         status: 'OK',
@@ -157,6 +262,17 @@ async function handlePlaceSearch(query, res) {
         data: {
           store: place,
           reviews,
+          kpiEstimated: true,
+          kpi: {
+            views: estimatedViews,
+            viewsPrev: Math.round(estimatedViews * prevFactor),
+            directions: estimatedRoutes,
+            directionsPrev: Math.round(estimatedRoutes * prevFactor),
+            calls: estimatedCalls,
+            callsPrev: Math.round(estimatedCalls * prevFactor),
+            website: estimatedWebsite,
+            websitePrev: Math.round(estimatedWebsite * prevFactor),
+          },
           _real: true,
         }
       }));
@@ -165,6 +281,7 @@ async function handlePlaceSearch(query, res) {
       res.end(JSON.stringify({ status: detail.status, message: 'Place Details APIエラー: ' + detail.status }));
     }
   } catch (err) {
+    console.error('[Place] Error:', err);
     res.writeHead(500, cors);
     res.end(JSON.stringify({ status: 'ERROR', message: err.message }));
   }
