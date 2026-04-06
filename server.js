@@ -82,12 +82,22 @@ async function handlePlaceSearch(query, res) {
   const cors = { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' };
 
   if (!API_KEY) {
+    const demoPlace = generateDemoData(query);
+    const demoReviews = (demoPlace.reviews || []).map(r => ({
+      name: r.authorName || '匿名',
+      rating: r.rating,
+      text: r.text || '',
+      date: r.time || '',
+    }));
     res.writeHead(200, cors);
     res.end(JSON.stringify({
-      status: 'NO_API_KEY',
-      message: 'Google Places APIキーが設定されていません。server.jsのAPI_KEYを設定するか、環境変数GOOGLE_PLACES_API_KEYを設定してください。',
-      demoMode: true,
-      place: generateDemoData(query)
+      status: 'OK',
+      place: demoPlace,
+      data: {
+        store: { ...demoPlace, category: 'レストラン', status: '営業中' },
+        reviews: demoReviews,
+        _real: false,
+      }
     }));
     return;
   }
@@ -116,28 +126,38 @@ async function handlePlaceSearch(query, res) {
 
     if (detail.status === 'OK') {
       const p = detail.result;
+      const place = {
+        name: p.name || '',
+        rating: p.rating || 0,
+        reviewCount: p.user_ratings_total || 0,
+        phone: p.formatted_phone_number || '',
+        website: p.website || '',
+        address: p.formatted_address || '',
+        hasHours: !!(p.opening_hours),
+        isOpen: p.opening_hours ? p.opening_hours.open_now : null,
+        photoCount: p.photos ? p.photos.length : 0,
+        types: p.types || [],
+        businessStatus: p.business_status || '',
+        category: (p.types || [])[0] || '',
+        status: p.business_status === 'OPERATIONAL' ? '営業中' : '休業中',
+        url: p.url || '',
+      };
+      // Format reviews for dashboard
+      const reviews = (p.reviews || []).slice(0, 5).map(r => ({
+        name: r.author_name || '匿名',
+        rating: r.rating,
+        text: r.text ? r.text.substring(0, 200) : '',
+        date: r.relative_time_description || '',
+      }));
+      // Return both raw place and dashboard-formatted data
       res.writeHead(200, cors);
       res.end(JSON.stringify({
         status: 'OK',
-        place: {
-          name: p.name || '',
-          rating: p.rating || 0,
-          reviewCount: p.user_ratings_total || 0,
-          phone: p.formatted_phone_number || '',
-          website: p.website || '',
-          address: p.formatted_address || '',
-          hasHours: !!(p.opening_hours),
-          isOpen: p.opening_hours ? p.opening_hours.open_now : null,
-          photoCount: p.photos ? p.photos.length : 0,
-          types: p.types || [],
-          businessStatus: p.business_status || '',
-          url: p.url || '',
-          reviews: (p.reviews || []).slice(0, 5).map(r => ({
-            rating: r.rating,
-            text: r.text ? r.text.substring(0, 200) : '',
-            time: r.relative_time_description,
-            authorName: r.author_name,
-          })),
+        place,
+        data: {
+          store: place,
+          reviews,
+          _real: true,
         }
       }));
     } else {
@@ -541,7 +561,7 @@ const server = http.createServer((req, res) => {
 
   // API endpoint: Places API
   if (parsedUrl.pathname === '/api/place') {
-    const query = parsedUrl.query.q || '';
+    const query = parsedUrl.query.q || parsedUrl.query.url || '';
     handlePlaceSearch(query, res);
     return;
   }

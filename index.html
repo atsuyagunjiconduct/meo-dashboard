@@ -453,18 +453,68 @@ function ReviewStats({store,period,onPeriodChange}){
   </div>`;
 }
 
+// ===== Feature Card with expandable detail =====
+function FeatureCard({icon,title,desc,detail,color,delay,expanded,onToggle}){
+  return html`<div key=${title} class="card p-3 text-center anim-fade cursor-pointer select-none" style=${{animationDelay:delay+'ms'}} onClick=${onToggle}>
+    <div class="w-9 h-9 mx-auto rounded-lg flex items-center justify-center mb-2" style=${{background:color+'15'}}>
+      <${Icon} name=${icon} size=${16} color=${color}/>
+    </div>
+    <div class="text-xs font-semibold text-gray-800 mb-0.5">${title}</div>
+    <div class="text-[10px] text-gray-400">${desc}</div>
+    <div class="overflow-hidden transition-all duration-400 ease-out" style=${{maxHeight:expanded?'120px':'0',opacity:expanded?1:0,marginTop:expanded?'8px':'0'}}>
+      <div class="text-[10px] text-gray-600 leading-relaxed bg-gray-50 rounded-lg p-2 text-left">
+        ${detail}
+      </div>
+    </div>
+  </div>`;
+}
+
 // ===== CONNECT SCREEN =====
 function ConnectScreen({onConnect, onDemo}){
   const [vis,setVis]=useState(false);
+  const [mapUrl,setMapUrl]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState('');
+  const [expandedIdx,setExpandedIdx]=useState(-1);
+
   useEffect(()=>{setTimeout(()=>setVis(true),100)},[]);
+
   const features=[
-    {icon:'eye',title:'表示回数',desc:'Googleマップでの検索表示データ',color:'#3B82F6'},
-    {icon:'route',title:'ルート検索数',desc:'お店への経路検索の回数',color:'#8B5CF6'},
-    {icon:'phone',title:'電話・クリック数',desc:'電話タップとウェブサイト流入',color:'#F59E0B'},
-    {icon:'bot',title:'AI検索順位',desc:'ChatGPT/Gemini等での表示順位',color:'#EC4899'},
-    {icon:'star',title:'クチコミ分析',desc:'評価の推移と改善ポイント',color:'#10B981'},
-    {icon:'target',title:'MEOスコア',desc:'総合スコアと改善ロードマップ',color:'#F97316'},
+    {icon:'eye',title:'表示回数',desc:'Googleマップでの検索表示データ',color:'#3B82F6',
+     detail:'過去28日間のGoogleマップ・Google検索での表示回数を自動集計。前月比の増減率もひと目でわかります。'},
+    {icon:'route',title:'ルート検索数',desc:'お店への経路検索の回数',color:'#8B5CF6',
+     detail:'ユーザーがお店への道順を検索した回数を計測。来店意欲の高いユーザー数の目安になります。'},
+    {icon:'phone',title:'電話・クリック数',desc:'電話タップとウェブサイト流入',color:'#F59E0B',
+     detail:'Googleマップからの電話タップ数とウェブサイトクリック数。直接的なコンバージョン指標として重要です。'},
+    {icon:'bot',title:'AI検索順位',desc:'ChatGPT/Gemini等での表示順位',color:'#EC4899',
+     detail:'各AIエンジン（Google・ChatGPT・Gemini・Claude）で主要キーワード検索した際の表示順位を一覧化します。'},
+    {icon:'star',title:'クチコミ分析',desc:'評価の推移と改善ポイント',color:'#10B981',
+     detail:'クチコミ件数・平均評価・星分布を期間別に分析。改善すべきポイントを具体的に提示します。'},
+    {icon:'target',title:'MEOスコア',desc:'総合スコアと改善ロードマップ',color:'#F97316',
+     detail:'基本情報・クチコミ・検索露出・AI対策・エンゲージメントの5軸で100点満点のスコアを算出し、ランク判定します。'},
   ];
+
+  const handleUrlSubmit=async()=>{
+    if(!mapUrl.trim()){setError('GoogleマップのURLを入力してください');return;}
+    setLoading(true);setError('');
+    try{
+      const res=await fetch('/api/place?url='+encodeURIComponent(mapUrl.trim()));
+      const json=await res.json();
+      if(json.status==='OK'){
+        // Use data wrapper if available, otherwise build from place
+        const dashData=json.data || {store:json.place,reviews:[],_real:!!json.place};
+        onConnect(dashData);
+      } else if(json.status==='NOT_FOUND'){
+        setError('店舗が見つかりませんでした。GoogleマップのURLまたは店舗名を確認してください。');
+      } else {
+        setError(json.message||'データの取得に失敗しました。URLを確認してください。');
+      }
+    }catch(e){
+      setError('通信エラーが発生しました。もう一度お試しください。');
+    }
+    setLoading(false);
+  };
+
   return html`<div class="min-h-screen flex items-center justify-center px-4 py-12" style=${{background:'linear-gradient(135deg,#F0FDF4 0%,#F8FAFB 40%,#EFF6FF 100%)'}}>
     <div class="w-full max-w-xl transition-all duration-700 ${vis?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}">
       <div class="text-center mb-8">
@@ -472,22 +522,48 @@ function ConnectScreen({onConnect, onDemo}){
           <${Icon} name="mapPin" size=${32} color="#fff"/>
         </div>
         <h1 class="text-2xl font-extrabold text-gray-900 mb-1">店舗集客のミカタ</h1>
-        <p class="text-sm text-gray-500">ビジネスプロフィールを連携して、あなたのお店のMEO対策状況をAIが無料で診断します</p>
+        <p class="text-sm text-gray-500">あなたのお店のMEO対策状況をAIが無料で診断します</p>
       </div>
+
+      <!-- Main Card: Google Maps URL input -->
       <div class="card p-6 mb-4">
         <div class="flex items-center gap-2 mb-4">
-          <${Icon} name="link2" size=${18} color="#41B25D"/>
-          <h2 class="text-base font-bold text-gray-900">Googleビジネスプロフィールを連携</h2>
+          <${Icon} name="mapPin" size=${18} color="#41B25D"/>
+          <h2 class="text-base font-bold text-gray-900">お店のGoogleマップURLで診断</h2>
         </div>
-        <p class="text-sm text-gray-500 mb-5 leading-relaxed">
-          ビジネスプロフィールの権限を共有いただくと、実際のデータをもとに<span class="text-brand-600 font-semibold">表示回数・ルート検索・クチコミ・AI検索順位</span>などを自動分析し、具体的な改善施策をご提案します。
+        <p class="text-sm text-gray-500 mb-4 leading-relaxed">
+          Googleマップであなたのお店を検索し、<span class="text-brand-600 font-semibold">共有リンクをコピー</span>して貼り付けてください。公開データをもとにMEO対策状況を診断します。
         </p>
-        <button onClick=${onConnect}
-          class="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-200 rounded-xl px-6 py-3.5 text-sm font-semibold text-gray-700 hover:border-brand-400 hover:shadow-md transition-all mb-3 group">
-          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-          <span>Googleアカウントで連携する</span>
-          <${Icon} name="chevRight" size=${16} color="#9CA3AF" cls="group-hover:translate-x-1 transition-transform"/>
+
+        <!-- URL Input -->
+        <div class="mb-3">
+          <div class="flex gap-2">
+            <input type="text" value=${mapUrl} onInput=${e=>setMapUrl(e.target.value)}
+              onKeyDown=${e=>e.key==='Enter'&&handleUrlSubmit()}
+              placeholder="https://maps.google.com/maps?cid=... または共有リンク"
+              class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-brand-400 transition-colors"
+              disabled=${loading}/>
+          </div>
+          ${error && html`<p class="text-xs text-red-500 mt-2 flex items-center gap-1"><${Icon} name="alertTriangle" size=${12}/> ${error}</p>`}
+        </div>
+
+        <button onClick=${handleUrlSubmit} disabled=${loading}
+          class="w-full flex items-center justify-center gap-3 rounded-xl px-6 py-3.5 text-sm font-semibold text-white green-gradient hover:opacity-90 transition-all mb-3 disabled:opacity-50 group">
+          ${loading
+            ? html`<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full" style=${{animation:'spin 1s linear infinite'}}/> <span>診断中...</span>`
+            : html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> <span>この店舗を診断する</span> <${Icon} name="chevRight" size=${16} color="#fff" cls="group-hover:translate-x-1 transition-transform"/>`
+          }
         </button>
+
+        <div class="bg-gray-50 rounded-lg p-3 mb-3">
+          <p class="text-[11px] text-gray-500 leading-relaxed">
+            <span class="font-semibold text-gray-700">URLの取得方法：</span><br/>
+            1. Googleマップであなたのお店を検索<br/>
+            2. お店の情報ページを開く<br/>
+            3.「共有」ボタンからリンクをコピー
+          </p>
+        </div>
+
         <div class="relative flex items-center justify-center my-4">
           <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
           <span class="relative bg-white px-3 text-xs text-gray-400">または</span>
@@ -498,15 +574,13 @@ function ConnectScreen({onConnect, onDemo}){
           <span>デモデータで診断を体験する</span>
         </button>
       </div>
+
+      <!-- Features Grid with expandable detail -->
+      <p class="text-xs text-gray-400 text-center mb-2">タップして詳細を見る</p>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-        ${features.map((f,i)=>html`<div key=${i} class="card p-3 text-center anim-fade" style=${{animationDelay:(i*80+200)+'ms'}}>
-          <div class="w-9 h-9 mx-auto rounded-lg flex items-center justify-center mb-2" style=${{background:f.color+'15'}}>
-            <${Icon} name=${f.icon} size=${16} color=${f.color}/>
-          </div>
-          <div class="text-xs font-semibold text-gray-800 mb-0.5">${f.title}</div>
-          <div class="text-[10px] text-gray-400">${f.desc}</div>
-        </div>`)}
+        ${features.map((f,i)=>html`<${FeatureCard} key=${i} ...${f} delay=${i*80+200} expanded=${expandedIdx===i} onToggle=${()=>setExpandedIdx(expandedIdx===i?-1:i)}/>`)}
       </div>
+
       <div class="text-center">
         <div class="inline-flex items-center gap-4 text-[11px] text-gray-400">
           <span class="flex items-center gap-1"><${Icon} name="shield" size=${12} color="#41B25D"/> SSL暗号化通信</span>
@@ -809,51 +883,14 @@ function App(){
   const [screen,setScreen]=useState('connect');
   const [storeData,setStoreData]=useState(null);
   const [isDemo,setIsDemo]=useState(false);
-  const [loadingMsg,setLoadingMsg]=useState('');
 
-  useEffect(()=>{
-    const params=new URLSearchParams(window.location.search);
-    if(params.get('auth')==='success'){
-      window.history.replaceState({},'','/');
-      setScreen('loading');
-      setLoadingMsg('ビジネスプロフィールのデータを取得中...');
-      fetchGBPData();
-    } else if(params.get('auth')==='error'){
-      alert('Google連携に失敗しました: '+(params.get('reason')||'不明なエラー'));
-      window.history.replaceState({},'','/');
-    } else {
-      fetch('/api/auth/status').then(r=>r.json()).then(d=>{
-        if(d.authenticated){
-          setScreen('loading');
-          setLoadingMsg('データを読み込み中...');
-          fetchGBPData();
-        }
-      }).catch(()=>{});
-    }
-  },[]);
-
-  async function fetchGBPData(){
-    try{
-      const res=await fetch('/api/gbp/dashboard');
-      const json=await res.json();
-      if(json.status==='OK' && json.data){
-        setStoreData(json.data);
-        setIsDemo(false);
-        setScreen('dashboard');
-      } else {
-        setIsDemo(true);
-        setStoreData(null);
-        setScreen('dashboard');
-      }
-    }catch(e){
-      setIsDemo(true);
-      setStoreData(null);
+  const handleConnect=(placeData)=>{
+    // placeData comes from the Places API via URL input
+    if(placeData){
+      setStoreData(placeData);
+      setIsDemo(false);
       setScreen('dashboard');
     }
-  }
-
-  const handleConnect=()=>{
-    window.location.href='/auth/google';
   };
 
   const handleDemo=()=>{
@@ -867,18 +904,6 @@ function App(){
     setStoreData(null);
     setIsDemo(false);
   };
-
-  if(screen==='loading'){
-    return html`<div class="min-h-screen flex flex-col items-center justify-center gap-4" style=${{background:'linear-gradient(135deg,#F0FDF4 0%,#F8FAFB 40%,#EFF6FF 100%)'}}>
-      <div class="w-16 h-16 rounded-2xl green-gradient shadow-lg flex items-center justify-center">
-        <${Icon} name="mapPin" size=${32} color="#fff"/>
-      </div>
-      <div class="flex items-center gap-3">
-        <div class="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" style=${{animation:'spin 1s linear infinite'}}/>
-        <span class="text-sm font-medium text-gray-600">${loadingMsg}</span>
-      </div>
-    </div>`;
-  }
 
   if(screen==='connect'){
     return html`<${ConnectScreen} onConnect=${handleConnect} onDemo=${handleDemo}/>`;
