@@ -976,7 +976,11 @@ function App(){
     try{
       const res=await fetch('/api/gbp/locations');
       const json=await res.json();
-      if(json.status==='OK' && json.locations?.length>0){
+      if(json.status==='QUOTA_ERROR'){
+        // API審査中 - 認証成功のメッセージを表示してデモへ誘導
+        setAuthError('✅ Googleアカウント連携に成功しました！\\n\\n' + (json.message || 'API審査中のため、現在はデモデータで診断をお試しください。') + '\\n\\n下の「デモデータで診断を体験する」ボタンをお試しください。');
+        setScreen('connect');
+      } else if(json.status==='OK' && json.locations?.length>0){
         setLocations(json.locations);
         if(json.locations.length===1){
           // Auto-select single location

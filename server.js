@@ -151,7 +151,11 @@ async function fetchLocations(accessToken) {
   // Step 1: List accounts
   const accountsRes = await gbpFetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', accessToken);
   if (accountsRes.error) {
-    return { error: accountsRes.error.message || 'Failed to fetch accounts' };
+    const errMsg = accountsRes.error.message || 'Failed to fetch accounts';
+    if (errMsg.includes('Quota exceeded') || errMsg.includes('quota')) {
+      return { error: 'API_QUOTA_EXCEEDED', quotaError: true, message: 'Google Business Profile APIの利用申請が審査中です。承認され次第、自動的にデータが表示されるようになります。現在はデモデータで診断をお試しいただけます。' };
+    }
+    return { error: errMsg };
   }
   if (!accountsRes.accounts || accountsRes.accounts.length === 0) {
     return { error: 'このGoogleアカウントにはビジネスプロフィールが見つかりません。ビジネスオーナーの管理者権限があるアカウントでログインしてください。' };
@@ -492,7 +496,10 @@ const server = http.createServer((req, res) => {
       }
       try {
         const result = await fetchLocations(session.accessToken);
-        if (result.error) {
+        if (result.quotaError) {
+          res.writeHead(200, cors);
+          res.end(JSON.stringify({ status: 'QUOTA_ERROR', message: result.message }));
+        } else if (result.error) {
           res.writeHead(200, cors);
           res.end(JSON.stringify({ status: 'ERROR', message: result.error }));
         } else {
