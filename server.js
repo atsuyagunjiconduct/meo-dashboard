@@ -120,22 +120,10 @@ async function handlePlaceSearch(query, res) {
   const cors = { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' };
 
   if (!API_KEY) {
-    const demoPlace = generateDemoData(query);
-    const demoReviews = (demoPlace.reviews || []).map(r => ({
-      name: r.authorName || '匿名',
-      rating: r.rating,
-      text: r.text || '',
-      date: r.time || '',
-    }));
     res.writeHead(200, cors);
     res.end(JSON.stringify({
-      status: 'OK',
-      place: demoPlace,
-      data: {
-        store: { ...demoPlace, category: 'レストラン', status: '営業中' },
-        reviews: demoReviews,
-        _real: false,
-      }
+      status: 'NO_API_KEY',
+      message: 'Google Places APIキーが設定されていないため、実際の店舗データを取得できません。サーバーの環境変数 GOOGLE_PLACES_API_KEY を設定してください。',
     }));
     return;
   }
