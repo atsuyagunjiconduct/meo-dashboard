@@ -92,6 +92,7 @@ const I={
   externalLink:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
   messageCircle:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
   logIn:'<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>',
+  logOut:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   link2:'<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/>',
   building:'<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>',
   info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
@@ -100,6 +101,7 @@ const I={
   home:'<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
   fileText:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  userCheck:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>',
 };
 function Icon({name,size=20,color='currentColor',cls='',fill='none'}){
   return html`<svg xmlns="http://www.w3.org/2000/svg" width=${size} height=${size} viewBox="0 0 24 24" fill=${fill} stroke=${color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class=${cls} dangerouslySetInnerHTML=${{__html:I[name]||''}}/>`;
@@ -119,12 +121,8 @@ const KPI=[
 ];
 
 const VIEWS_TREND=[
-  {month:'10月',views:8420,routes:980,calls:210},
-  {month:'11月',views:9100,routes:1050,calls:240},
-  {month:'12月',views:11200,routes:1320,calls:310},
-  {month:'1月',views:10800,routes:1200,calls:280},
-  {month:'2月',views:11203,routes:1289,calls:301},
-  {month:'3月',views:12847,routes:1432,calls:342},
+  {month:'10月',views:8420},{month:'11月',views:9100},{month:'12月',views:11200},
+  {month:'1月',views:10800},{month:'2月',views:11203},{month:'3月',views:12847},
 ];
 
 const SEARCH_QUERIES=[
@@ -155,7 +153,6 @@ const REVIEWS_RECENT=[
   {name:'A.Suzuki',rating:3,text:'味は良いが価格がやや高め。ランチならコスパ良いです。',date:'3週間前'},
 ];
 
-// Demo review count data by period
 const REVIEW_COUNTS_DEMO={
   '3m':{total:187,newReviews:28,avgRating:4.2,distribution:[3,5,12,62,105]},
   '6m':{total:187,newReviews:54,avgRating:4.1,distribution:[5,9,20,58,95]},
@@ -194,7 +191,6 @@ function calcMeoScore(store,kpi,aio){
   const callRate=kpiArr[2].value/kpiArr[0].value;
   if(callRate>0.02)eng+=4;else if(callRate>0.01)eng+=2;else eng+=1;
   scores.engagement={score:Math.min(15,eng),max:15,pct:Math.round(Math.min(15,eng)/15*100),label:'エンゲージメント'};
-
   const total=Object.values(scores).reduce((s,v)=>s+v.score,0);
   return{scores,total,maxTotal:100,pct:Math.round(total/100*100)};
 }
@@ -224,7 +220,6 @@ function AnimNum({value,duration=1200}){
   return html`<span>${dv.toLocaleString()}</span>`;
 }
 
-// KPI Card - color per item
 function KpiCard({data,delay=0}){
   const diff=data.value-data.prev;
   const pct=data.prev?((diff/data.prev)*100).toFixed(1):'0.0';
@@ -248,7 +243,6 @@ function KpiCard({data,delay=0}){
   </div>`;
 }
 
-// Line Chart
 function LineChart({data,width=600,height=200}){
   const pad={t:20,r:20,b:35,l:50};
   const w=width-pad.l-pad.r, h=height-pad.t-pad.b;
@@ -280,9 +274,8 @@ function LineChart({data,width=600,height=200}){
   </svg>`;
 }
 
-// Search Query Bars - gradient colors
 function QueryBars({data}){
-  const maxV=Math.max(...data.map(d=>d.views));
+  const maxV=Math.max(...data.map(d=>d.views||d.impressions||0));
   const barColors=['#3B82F6','#8B5CF6','#EC4899','#F59E0B','#10B981','#06B6D4','#F97316','#6366F1'];
   return html`<div class="space-y-3">
     ${data.map((d,i)=>html`<div key=${i} class="anim-slide" style=${{animationDelay:i*60+'ms'}}>
@@ -291,22 +284,21 @@ function QueryBars({data}){
           <${Icon} name="search" size=${13} color="#9CA3AF"/>
           <span class="text-sm font-medium text-gray-700">${d.keyword}</span>
         </div>
-        <span class="text-xs font-semibold text-gray-500">${d.views.toLocaleString()} <span class="text-gray-400 font-normal">(${d.pct}%)</span></span>
+        <span class="text-xs font-semibold text-gray-500">${(d.views||d.impressions||0).toLocaleString()} <span class="text-gray-400 font-normal">(${d.pct}%)</span></span>
       </div>
       <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div class="h-full rounded-full transition-all duration-700 ease-out" style=${{width:(d.views/maxV*100)+'%',background:barColors[i%barColors.length]}}/>
+        <div class="h-full rounded-full transition-all duration-700 ease-out" style=${{width:((d.views||d.impressions||0)/maxV*100)+'%',background:barColors[i%barColors.length]}}/>
       </div>
     </div>`)}
   </div>`;
 }
 
-// AIO Ranking Table - without Perplexity
 function AioTable({data}){
   const engines=[
-    {key:'google',label:'Google',icon:'G',color:'#4285F4',bg:'#EFF6FF'},
-    {key:'chatgpt',label:'ChatGPT',icon:'C',color:'#10A37F',bg:'#ECFDF5'},
-    {key:'gemini',label:'Gemini',icon:'G',color:'#8E75B2',bg:'#F5F3FF'},
-    {key:'claude',label:'Claude',icon:'C',color:'#D97706',bg:'#FFFBEB'},
+    {key:'google',label:'Google',color:'#4285F4'},
+    {key:'chatgpt',label:'ChatGPT',color:'#10A37F'},
+    {key:'gemini',label:'Gemini',color:'#8E75B2'},
+    {key:'claude',label:'Claude',color:'#D97706'},
   ];
   const rankBadge=(v)=>{
     const c=v<=3?'bg-emerald-50 text-emerald-700 font-bold':v<=5?'bg-blue-50 text-blue-700':v<=10?'bg-gray-100 text-gray-600':'bg-red-50 text-red-600';
@@ -317,9 +309,7 @@ function AioTable({data}){
       <thead>
         <tr class="border-b border-gray-200">
           <th class="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style=${{minWidth:'200px'}}>キーワード</th>
-          ${engines.map(e=>html`<th key=${e.key} class="text-center py-3 px-2 text-xs font-semibold whitespace-nowrap" style=${{color:e.color}}>
-            ${e.label}
-          </th>`)}
+          ${engines.map(e=>html`<th key=${e.key} class="text-center py-3 px-2 text-xs font-semibold whitespace-nowrap" style=${{color:e.color}}>${e.label}</th>`)}
           <th class="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">平均</th>
         </tr>
       </thead>
@@ -344,7 +334,6 @@ function AioTable({data}){
   </div>`;
 }
 
-// Score Ring
 function ScoreRing({value,size=140,strokeWidth=10,color='#41B25D'}){
   const[dv,setDv]=useState(0);
   const r=(size-strokeWidth)/2,c=r*2*Math.PI,off=c-(dv/100)*c;
@@ -371,7 +360,6 @@ function ScoreRing({value,size=140,strokeWidth=10,color='#41B25D'}){
   </div>`;
 }
 
-// Score Category Bars - different colors per category
 function ScoreBars({scores}){
   const catColors={basic:'#3B82F6',reviews:'#F59E0B',visibility:'#8B5CF6',aio:'#EC4899',engagement:'#10B981'};
   const entries=Object.entries(scores);
@@ -392,7 +380,6 @@ function ScoreBars({scores}){
   </div>`;
 }
 
-// Recommendation Card
 function RecCard({icon,title,desc,priority,delay=0}){
   const pColors={high:'bg-red-50 text-red-600 border-red-200',mid:'bg-yellow-50 text-yellow-700 border-yellow-200',low:'bg-blue-50 text-blue-700 border-blue-200'};
   const pLabels={high:'優先度：高',mid:'優先度：中',low:'優先度：低'};
@@ -412,13 +399,16 @@ function RecCard({icon,title,desc,priority,delay=0}){
   </div>`;
 }
 
-// Review Stats Panel
-function ReviewStats({store,period,onPeriodChange}){
+function ReviewStats({store,period,onPeriodChange,reviewDistribution}){
   const periods=[{key:'3m',label:'3ヶ月'},{key:'6m',label:'6ヶ月'},{key:'1y',label:'1年'},{key:'3y',label:'3年'}];
   const data=REVIEW_COUNTS_DEMO[period];
+  // Use real distribution if available
+  const dist=reviewDistribution||data.distribution;
   const starLabels=['1','2','3','4','5'];
   const starColors=['#EF4444','#F97316','#F59E0B','#84CC16','#22C55E'];
-  const maxDist=Math.max(...data.distribution);
+  const maxDist=Math.max(...dist);
+  const totalReviews=reviewDistribution?dist.reduce((a,b)=>a+b,0):data.total;
+  const avgRating=reviewDistribution?(dist.reduce((s,c,i)=>s+c*(i+1),0)/Math.max(totalReviews,1)).toFixed(1):data.avgRating;
   return html`<div>
     <div class="flex items-center gap-2 mb-4 flex-wrap">
       ${periods.map(p=>html`<button key=${p.key} onClick=${()=>onPeriodChange(p.key)}
@@ -426,26 +416,22 @@ function ReviewStats({store,period,onPeriodChange}){
         ${p.label}
       </button>`)}
     </div>
-    <div class="grid grid-cols-3 gap-4 mb-4">
+    <div class="grid grid-cols-2 gap-4 mb-4">
       <div class="text-center p-3 rounded-xl bg-blue-50">
-        <div class="text-2xl font-extrabold text-blue-600">${data.total}</div>
+        <div class="text-2xl font-extrabold text-blue-600">${totalReviews}</div>
         <div class="text-[10px] text-blue-500 font-medium">総クチコミ数</div>
       </div>
-      <div class="text-center p-3 rounded-xl bg-emerald-50">
-        <div class="text-2xl font-extrabold text-emerald-600">+${data.newReviews}</div>
-        <div class="text-[10px] text-emerald-500 font-medium">新規クチコミ</div>
-      </div>
       <div class="text-center p-3 rounded-xl bg-amber-50">
-        <div class="text-2xl font-extrabold text-amber-600">${data.avgRating}</div>
+        <div class="text-2xl font-extrabold text-amber-600">${avgRating}</div>
         <div class="text-[10px] text-amber-500 font-medium">平均評価</div>
       </div>
     </div>
     <div class="space-y-2">
-      ${data.distribution.map((count,i)=>html`<div key=${i} class="flex items-center gap-2">
+      ${dist.map((count,i)=>html`<div key=${i} class="flex items-center gap-2">
         <span class="text-xs font-semibold w-4 text-right" style=${{color:starColors[i]}}>${starLabels[i]}</span>
         <${Icon} name="star" size=${12} color=${starColors[i]} fill=${starColors[i]}/>
         <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div class="h-full rounded-full transition-all duration-700" style=${{width:(count/maxDist*100)+'%',background:starColors[i]}}/>
+          <div class="h-full rounded-full transition-all duration-700" style=${{width:(count/Math.max(maxDist,1)*100)+'%',background:starColors[i]}}/>
         </div>
         <span class="text-xs text-gray-500 w-8 text-right">${count}</span>
       </div>`)}
@@ -453,7 +439,6 @@ function ReviewStats({store,period,onPeriodChange}){
   </div>`;
 }
 
-// ===== Feature Card with expandable detail =====
 function FeatureCard({icon,title,desc,detail,color,delay,expanded,onToggle}){
   return html`<div key=${title} class="card p-3 text-center anim-fade cursor-pointer select-none" style=${{animationDelay:delay+'ms'}} onClick=${onToggle}>
     <div class="w-9 h-9 mx-auto rounded-lg flex items-center justify-center mb-2" style=${{background:color+'15'}}>
@@ -470,11 +455,8 @@ function FeatureCard({icon,title,desc,detail,color,delay,expanded,onToggle}){
 }
 
 // ===== CONNECT SCREEN =====
-function ConnectScreen({onConnect, onDemo}){
+function ConnectScreen({onConnect, onDemo, authStatus}){
   const [vis,setVis]=useState(false);
-  const [mapUrl,setMapUrl]=useState('');
-  const [loading,setLoading]=useState(false);
-  const [error,setError]=useState('');
   const [expandedIdx,setExpandedIdx]=useState(-1);
 
   useEffect(()=>{setTimeout(()=>setVis(true),100)},[]);
@@ -494,26 +476,11 @@ function ConnectScreen({onConnect, onDemo}){
      detail:'基本情報・クチコミ・検索露出・AI対策・エンゲージメントの5軸で100点満点のスコアを算出し、ランク判定します。'},
   ];
 
-  const handleUrlSubmit=async()=>{
-    if(!mapUrl.trim()){setError('GoogleマップのURLを入力してください');return;}
-    setLoading(true);setError('');
-    try{
-      const res=await fetch('/api/place?url='+encodeURIComponent(mapUrl.trim()));
-      const json=await res.json();
-      if(json.status==='OK' && json.data){
-        onConnect(json.data);
-      } else if(json.status==='NO_API_KEY'){
-        setError('現在サーバーにGoogle Places APIキーが設定されていないため、実店舗データの取得ができません。管理者にお問い合わせください。');
-      } else if(json.status==='NOT_FOUND'){
-        setError('店舗が見つかりませんでした。GoogleマップのURLまたは店舗名を確認してください。');
-      } else {
-        setError(json.message||'データの取得に失敗しました。URLを確認してください。');
-      }
-    }catch(e){
-      setError('通信エラーが発生しました。もう一度お試しください。');
-    }
-    setLoading(false);
+  const handleGbpConnect=()=>{
+    window.location.href='/auth/google';
   };
+
+  const hasConfig=authStatus?.hasGbpConfig;
 
   return html`<div class="min-h-screen flex items-center justify-center px-4 py-12" style=${{background:'linear-gradient(135deg,#F0FDF4 0%,#F8FAFB 40%,#EFF6FF 100%)'}}>
     <div class="w-full max-w-xl transition-all duration-700 ${vis?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}">
@@ -522,51 +489,55 @@ function ConnectScreen({onConnect, onDemo}){
           <${Icon} name="mapPin" size=${32} color="#fff"/>
         </div>
         <h1 class="text-2xl font-extrabold text-gray-900 mb-1">店舗集客のミカタ</h1>
-        <p class="text-sm text-gray-500">あなたのお店のMEO対策状況をAIが無料で診断します</p>
+        <p class="text-sm text-gray-500">あなたのお店のMEO対策状況をAIが診断します</p>
       </div>
 
-      <!-- Main Card: Google Maps URL input -->
+      <!-- Main Card: GBP Connect -->
       <div class="card p-6 mb-4">
         <div class="flex items-center gap-2 mb-4">
-          <${Icon} name="mapPin" size=${18} color="#41B25D"/>
-          <h2 class="text-base font-bold text-gray-900">お店のGoogleマップURLで診断</h2>
+          <${Icon} name="userCheck" size=${18} color="#41B25D"/>
+          <h2 class="text-base font-bold text-gray-900">Googleビジネスプロフィールを連携</h2>
         </div>
-        <p class="text-sm text-gray-500 mb-4 leading-relaxed">
-          Googleマップであなたのお店を検索し、<span class="text-brand-600 font-semibold">共有リンクをコピー</span>して貼り付けてください。Googleマップの公開データ（店舗名・評価・クチコミ・住所等）を取得して診断します。
+        <p class="text-sm text-gray-500 mb-5 leading-relaxed">
+          Googleビジネスプロフィールの<span class="text-brand-600 font-semibold">管理者権限</span>を連携すると、表示回数・ルート検索・電話タップ・クチコミなど、<span class="text-brand-600 font-semibold">すべての実データ</span>をもとにMEO対策状況を診断できます。
         </p>
 
-        <!-- URL Input -->
-        <div class="mb-3">
-          <div class="flex gap-2">
-            <input type="text" value=${mapUrl} onInput=${e=>setMapUrl(e.target.value)}
-              onKeyDown=${e=>e.key==='Enter'&&handleUrlSubmit()}
-              placeholder="https://maps.google.com/maps?cid=... または共有リンク"
-              class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-brand-400 transition-colors"
-              disabled=${loading}/>
+        ${hasConfig ? html`
+          <button onClick=${handleGbpConnect}
+            class="w-full flex items-center justify-center gap-3 rounded-xl px-6 py-4 text-base font-bold text-white green-gradient hover:opacity-90 transition-all mb-4 line-btn-pulse">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+            </svg>
+            <span>Googleアカウントで連携する</span>
+            <${Icon} name="chevRight" size=${18} color="#fff" cls="group-hover:translate-x-1 transition-transform"/>
+          </button>
+        ` : html`
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+            <div class="flex items-start gap-2">
+              <${Icon} name="alertTriangle" size=${16} color="#F59E0B" cls="flex-shrink-0 mt-0.5"/>
+              <div>
+                <p class="text-sm font-semibold text-amber-800 mb-1">連携機能は現在準備中です</p>
+                <p class="text-xs text-amber-700 leading-relaxed">
+                  Googleビジネスプロフィール連携に必要なOAuth設定が完了していません。デモモードで機能をご確認いただけます。<br/>
+                  連携のご相談は下記LINEよりお問い合わせください。
+                </p>
+              </div>
+            </div>
           </div>
-          ${error && html`<p class="text-xs text-red-500 mt-2 flex items-center gap-1"><${Icon} name="alertTriangle" size=${12}/> ${error}</p>`}
-        </div>
+        `}
 
-        <button onClick=${handleUrlSubmit} disabled=${loading}
-          class="w-full flex items-center justify-center gap-3 rounded-xl px-6 py-4 text-base font-bold text-white green-gradient hover:opacity-90 transition-all mb-3 disabled:opacity-50 group ${!loading?'line-btn-pulse':''}">
-          ${loading
-            ? html`<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full" style=${{animation:'spin 1s linear infinite'}}/> <span>診断中...</span>`
-            : html`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> <span>この店舗を診断する</span> <${Icon} name="chevRight" size=${18} color="#fff" cls="group-hover:translate-x-1 transition-transform"/>`
-          }
-        </button>
-
-        <div class="bg-gray-50 rounded-lg p-3 mb-3">
+        <div class="bg-gray-50 rounded-lg p-3 mb-4">
           <p class="text-[11px] text-gray-500 leading-relaxed">
-            <span class="font-semibold text-gray-700">URLの取得方法：</span><br/>
-            1. Googleマップであなたのお店を検索<br/>
-            2. お店の情報ページを開く<br/>
-            3.「共有」ボタンからリンクをコピー
+            <span class="font-semibold text-gray-700">連携の流れ：</span><br/>
+            1. Googleアカウントでログイン<br/>
+            2. ビジネスプロフィールへのアクセスを許可<br/>
+            3. 診断する店舗を選択
           </p>
         </div>
-        <div class="bg-blue-50 rounded-lg p-3 mb-3">
+        <div class="bg-blue-50 rounded-lg p-3 mb-4">
           <p class="text-[11px] text-blue-700 leading-relaxed">
-            <span class="font-semibold">取得できるデータ：</span>店舗名・住所・評価（星）・クチコミ数・クチコミ内容・営業状況<br/>
-            <span class="font-semibold">推定となるデータ：</span>表示回数・ルート検索数・電話タップ・Webクリック（※これらはGoogleビジネスプロフィールの管理者権限が必要なため、クチコミ数をベースにした推定値で表示されます）
+            <span class="font-semibold">取得するデータ：</span>店舗名・住所・評価・クチコミ・表示回数・ルート検索数・電話タップ・Webクリック・検索キーワード<br/>
+            <span class="font-semibold">すべて実データ：</span>Googleビジネスプロフィールの管理者権限を通じて、推定値ではなく実際のパフォーマンスデータを取得します。
           </p>
         </div>
 
@@ -581,19 +552,96 @@ function ConnectScreen({onConnect, onDemo}){
         </button>
       </div>
 
-      <!-- Features Grid with expandable detail -->
+      <!-- Features Grid -->
       <p class="text-xs text-gray-400 text-center mb-2">タップして詳細を見る</p>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
         ${features.map((f,i)=>html`<${FeatureCard} key=${i} ...${f} delay=${i*80+200} expanded=${expandedIdx===i} onToggle=${()=>setExpandedIdx(expandedIdx===i?-1:i)}/>`)}
       </div>
 
       <div class="text-center">
-        <div class="inline-flex items-center gap-4 text-[11px] text-gray-400">
-          <span class="flex items-center gap-1"><${Icon} name="shield" size=${12} color="#41B25D"/> SSL暗号化通信</span>
-          <span class="flex items-center gap-1"><${Icon} name="check" size=${12} color="#41B25D"/> 完全無料</span>
-          <span class="flex items-center gap-1"><${Icon} name="clock" size=${12} color="#41B25D"/> 診断3分</span>
-        </div>
         <p class="text-[10px] text-gray-400 mt-2">Powered by <span class="font-semibold text-gray-500">店舗集客のミカタ</span>（株式会社Conduct）</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ===== LOCATION SELECT SCREEN =====
+function LocationSelectScreen({locations, onSelect, onLogout, onGoHome}){
+  const [selected,setSelected]=useState(null);
+  const [loading,setLoading]=useState(false);
+
+  const handleDiagnose=async()=>{
+    if(!selected) return;
+    setLoading(true);
+    try{
+      const loc=locations.find(l=>l.name===selected);
+      const res=await fetch('/api/gbp/dashboard?account='+encodeURIComponent(loc.accountName)+'&location='+encodeURIComponent(loc.name));
+      const json=await res.json();
+      if(json.status==='OK' && json.data){
+        onSelect(json.data);
+      } else {
+        alert(json.message||'データの取得に失敗しました。');
+        setLoading(false);
+      }
+    }catch(e){
+      alert('通信エラーが発生しました。');
+      setLoading(false);
+    }
+  };
+
+  return html`<div class="min-h-screen flex items-center justify-center px-4 py-12" style=${{background:'linear-gradient(135deg,#F0FDF4 0%,#F8FAFB 40%,#EFF6FF 100%)'}}>
+    <div class="w-full max-w-xl">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl green-gradient shadow-lg mb-4">
+          <${Icon} name="mapPin" size=${32} color="#fff"/>
+        </div>
+        <h1 class="text-2xl font-extrabold text-gray-900 mb-1">店舗を選択</h1>
+        <p class="text-sm text-gray-500">診断する店舗を選択してください</p>
+      </div>
+
+      <div class="card p-6 mb-4">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"/>
+          <span class="text-xs font-medium text-brand-700">GBP連携済み</span>
+        </div>
+
+        <div class="space-y-3 mb-6">
+          ${locations.map((loc,i)=>html`<button key=${i}
+            onClick=${()=>setSelected(loc.name)}
+            class="w-full text-left p-4 rounded-xl border-2 transition-all ${selected===loc.name?'border-brand-400 bg-brand-50':'border-gray-200 hover:border-gray-300 bg-white'}">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl green-gradient flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                ${loc.title.charAt(0)}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="font-bold text-gray-900 text-sm">${loc.title}</div>
+                <div class="text-xs text-gray-500 truncate">${loc.address}</div>
+                ${loc.rating>0 && html`<div class="flex items-center gap-1 mt-1">
+                  <${Stars} rating=${loc.rating} size=${10}/>
+                  <span class="text-xs text-gray-500">${loc.rating} (${loc.reviewCount}件)</span>
+                </div>`}
+              </div>
+              ${selected===loc.name && html`<${Icon} name="check" size=${20} color="#41B25D"/>`}
+            </div>
+          </button>`)}
+        </div>
+
+        <button onClick=${handleDiagnose} disabled=${!selected||loading}
+          class="w-full flex items-center justify-center gap-3 rounded-xl px-6 py-4 text-base font-bold text-white green-gradient hover:opacity-90 transition-all disabled:opacity-50 ${selected&&!loading?'line-btn-pulse':''}">
+          ${loading
+            ? html`<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full" style=${{animation:'spin 1s linear infinite'}}/> <span>データ取得中...</span>`
+            : html`<${Icon} name="search" size=${20} color="#fff"/> <span>この店舗を診断する</span>`
+          }
+        </button>
+      </div>
+
+      <div class="flex items-center justify-center gap-4">
+        <button onClick=${onGoHome} class="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
+          <${Icon} name="home" size=${14}/> ホームに戻る
+        </button>
+        <button onClick=${onLogout} class="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
+          <${Icon} name="logOut" size=${14}/> ログアウト
+        </button>
       </div>
     </div>
   </div>`;
@@ -640,38 +688,34 @@ function LineCTA(){
   </section>`;
 }
 
-// ===== PDF SAVE =====
-function savePDF(){
-  window.print();
-}
+function savePDF(){ window.print(); }
 
 // ===== MAIN DASHBOARD =====
-function Dashboard({storeData, isDemo, onGoHome}){
+function Dashboard({storeData, isDemo, isGbpAuth, onGoHome, onLogout}){
   const store=storeData?.store || STORE;
   const isReal=!!(storeData && storeData._real);
   const [reviewPeriod,setReviewPeriod]=useState('3m');
 
-  const isEstimated=!!(storeData?.kpiEstimated);
   const kpi=useMemo(()=>{
     if(!storeData?.kpi) return KPI;
     const k=storeData.kpi;
     return [
-      {id:'views',label:'表示回数',value:k.views||0,prev:k.viewsPrev||0,icon:'eye',unit:'回',period:isEstimated?'推定値':'過去28日',color:'#3B82F6',bg:'#EFF6FF'},
-      {id:'routes',label:'ルート検索',value:k.directions||0,prev:k.directionsPrev||0,icon:'route',unit:'回',period:isEstimated?'推定値':'過去28日',color:'#8B5CF6',bg:'#F5F3FF'},
-      {id:'calls',label:'電話タップ',value:k.calls||0,prev:k.callsPrev||0,icon:'phone',unit:'回',period:isEstimated?'推定値':'過去28日',color:'#F59E0B',bg:'#FFFBEB'},
-      {id:'clicks',label:'ウェブサイト',value:k.website||0,prev:k.websitePrev||0,icon:'globe',unit:'クリック',period:isEstimated?'推定値':'過去28日',color:'#EC4899',bg:'#FDF2F8'},
+      {id:'views',label:'表示回数',value:k.views||0,prev:k.viewsPrev||0,icon:'eye',unit:'回',period:'過去28日',color:'#3B82F6',bg:'#EFF6FF'},
+      {id:'routes',label:'ルート検索',value:k.directions||0,prev:k.directionsPrev||0,icon:'route',unit:'回',period:'過去28日',color:'#8B5CF6',bg:'#F5F3FF'},
+      {id:'calls',label:'電話タップ',value:k.calls||0,prev:k.callsPrev||0,icon:'phone',unit:'回',period:'過去28日',color:'#F59E0B',bg:'#FFFBEB'},
+      {id:'clicks',label:'ウェブサイト',value:k.website||0,prev:k.websitePrev||0,icon:'globe',unit:'クリック',period:'過去28日',color:'#EC4899',bg:'#FDF2F8'},
     ];
   },[storeData]);
 
-  const viewsTrend=storeData?.viewsTrend || VIEWS_TREND;
-  const searchQueries=storeData?.searchQueries || SEARCH_QUERIES;
+  const viewsTrend=storeData?.viewsTrend?.length>0 ? storeData.viewsTrend : VIEWS_TREND;
+  const searchQueries=storeData?.searchQueries?.length>0 ? storeData.searchQueries : SEARCH_QUERIES;
   const aioRankings=AIO_RANKINGS;
-  const reviewsRecent=storeData?.reviews || REVIEWS_RECENT;
+  const reviewsRecent=storeData?.reviews?.length>0 ? storeData.reviews : REVIEWS_RECENT;
+  const reviewDistribution=storeData?.reviewDistribution || null;
 
   const meo=useMemo(()=>calcMeoScore(store,kpi,aioRankings),[store,kpi,aioRankings]);
   const rank=getMeoRank(meo.pct);
 
-  // Generate at least 5 recommendations
   const recs=useMemo(()=>{
     const r=[];
     if(meo.scores.reviews.pct<80) r.push({icon:'message',title:'クチコミ返信率を100%に',desc:'未返信のクチコミが確認されます。24時間以内の返信を徹底し、キーワードを含めた個別返信を行いましょう。返信率が高いほどGoogleの評価が上がります。',priority:'high'});
@@ -679,13 +723,11 @@ function Dashboard({storeData, isDemo, onGoHome}){
     if(meo.scores.aio.pct<80) r.push({icon:'bot',title:'AI検索（AIO）対策を強化',desc:'構造化データの実装、FAQ形式のコンテンツ作成、専門性の高い情報発信でAI検索エンジンからの評価を高めましょう。',priority:'mid'});
     if(meo.scores.engagement.pct<80) r.push({icon:'camera',title:'写真・動画コンテンツを充実',desc:'店舗写真を月10枚以上追加し、30秒の紹介動画も投稿しましょう。視覚的なコンテンツが充実するとCTRが35%以上向上します。',priority:'mid'});
     if(meo.scores.basic.pct<100) r.push({icon:'settings',title:'基本情報を完全に整備',desc:'営業時間の祝日設定、属性情報、サービス一覧を100%入力しましょう。情報の完全性はローカル検索ランキングの基本要素です。',priority:'low'});
-    // Always include these to ensure at least 5
     r.push({icon:'target',title:'競合分析を定期的に実施',desc:'周辺の競合店3〜5店のクチコミ数・評価・投稿頻度を月1回チェックし、差別化ポイントを見つけましょう。',priority:'mid'});
     r.push({icon:'sparkles',title:'Googleビジネスの投稿を活用',desc:'週2回以上の投稿を継続し、季節イベント・新メニュー・キャンペーン情報を定期的に発信。投稿にはキーワードと高品質な写真を含めましょう。',priority:'mid'});
     r.push({icon:'globe',title:'NAP情報の一貫性を確保',desc:'店舗名・住所・電話番号（NAP）をGoogle・SNS・グルメサイト・自社サイトで完全に統一しましょう。不一致はランキング低下の原因になります。',priority:'high'});
     r.push({icon:'zap',title:'クチコミ獲得キャンペーンの実施',desc:'来店客にQRコード付きカードを配布し、クチコミ投稿を依頼しましょう。月20件以上のクチコミ獲得が理想的です。',priority:'mid'});
     r.push({icon:'shield',title:'ネガティブレビューへの対応',desc:'低評価レビューには誠実に返信し、改善策を示しましょう。対応の質が新規顧客の印象を大きく左右します。',priority:'low'});
-    // Deduplicate and limit
     const seen=new Set();
     return r.filter(x=>{if(seen.has(x.title))return false;seen.add(x.title);return true;}).slice(0,7);
   },[meo]);
@@ -706,11 +748,14 @@ function Dashboard({storeData, isDemo, onGoHome}){
           <div class="flex items-center gap-3">
             <div class="hidden sm:flex items-center gap-2 ${isReal?'bg-brand-50 text-brand-700':'bg-amber-50 text-amber-700'} text-xs font-medium px-3 py-1.5 rounded-full">
               <div class="w-2 h-2 rounded-full ${isReal?'bg-brand-500':'bg-amber-500'} animate-pulse"/>
-              <span>${isReal?'実データ取得済':'デモモード'}</span>
+              <span>${isReal?'GBP連携済':'デモモード'}</span>
             </div>
             <button onClick=${savePDF} class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-colors tooltip" data-tip="PDFで保存">
               <${Icon} name="download" size=${16}/>
             </button>
+            ${isGbpAuth && html`<button onClick=${onLogout} class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-300 hover:bg-red-50 transition-colors tooltip" data-tip="連携解除">
+              <${Icon} name="logOut" size=${16}/>
+            </button>`}
             <button onClick=${onGoHome} class="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-brand-600 hover:border-brand-300 hover:bg-brand-50 transition-colors tooltip" data-tip="ホームに戻る">
               <${Icon} name="home" size=${16}/>
             </button>
@@ -740,24 +785,11 @@ function Dashboard({storeData, isDemo, onGoHome}){
             <span class="text-sm font-bold text-gray-700 ml-1">${store.rating}</span>
             <span class="text-xs text-gray-400">(${store.reviewCount}件)</span>
           </div>
-          <div class="flex items-center gap-1 text-xs text-gray-500">
-            <${Icon} name="camera" size=${13}/> ${store.photoCount || 0}枚
-          </div>
+          ${store.photoCount>0 && html`<div class="flex items-center gap-1 text-xs text-gray-500">
+            <${Icon} name="camera" size=${13}/> ${store.photoCount}枚
+          </div>`}
         </div>
       </div>
-
-      <!-- Estimated notice -->
-      ${isEstimated && html`<div class="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700 anim-fade">
-        <${Icon} name="info" size=${18} color="#3B82F6" cls="flex-shrink-0 mt-0.5"/>
-        <div>
-          <p class="font-semibold mb-1">データの取得元について</p>
-          <p class="text-xs leading-relaxed">
-            <span class="font-semibold text-blue-800">Googleマップから取得（実データ）：</span>店舗名・住所・星評価・クチコミ数・クチコミ内容・営業状況<br/>
-            <span class="font-semibold text-blue-800">推定値（参考値）：</span>表示回数・ルート検索数・電話タップ・Webクリック数<br/>
-            <span class="text-blue-600">※正確なパフォーマンスデータはGoogleビジネスプロフィールの管理者権限が必要です。詳細は下部のLINEからお問い合わせください。</span>
-          </p>
-        </div>
-      </div>`}
 
       <!-- KPI Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -792,7 +824,6 @@ function Dashboard({storeData, isDemo, onGoHome}){
 
       <!-- Review Stats + AIO Rankings -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Review Stats -->
         <div class="card p-5">
           <div class="flex items-center gap-2 mb-4">
             <div class="w-8 h-8 rounded-lg flex items-center justify-center" style=${{background:'#FEF3C7'}}>
@@ -803,10 +834,8 @@ function Dashboard({storeData, isDemo, onGoHome}){
               <p class="text-xs text-gray-400">期間別のクチコミ分析</p>
             </div>
           </div>
-          <${ReviewStats} store=${store} period=${reviewPeriod} onPeriodChange=${setReviewPeriod}/>
+          <${ReviewStats} store=${store} period=${reviewPeriod} onPeriodChange=${setReviewPeriod} reviewDistribution=${reviewDistribution}/>
         </div>
-
-        <!-- AIO Rankings -->
         <div class="lg:col-span-2 card p-5">
           <div class="flex items-center justify-between mb-1">
             <div class="flex items-center gap-2">
@@ -903,19 +932,88 @@ function App(){
   const [screen,setScreen]=useState('connect');
   const [storeData,setStoreData]=useState(null);
   const [isDemo,setIsDemo]=useState(false);
+  const [isGbpAuth,setIsGbpAuth]=useState(false);
+  const [authStatus,setAuthStatus]=useState(null);
+  const [locations,setLocations]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [authError,setAuthError]=useState('');
 
-  const handleConnect=(placeData)=>{
-    // placeData comes from the Places API via URL input
-    if(placeData){
-      setStoreData(placeData);
-      setIsDemo(false);
-      setScreen('dashboard');
+  // Check auth status on mount
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const res=await fetch('/api/auth/status');
+        const json=await res.json();
+        setAuthStatus(json);
+
+        // Check URL params for OAuth callback
+        const params=new URLSearchParams(window.location.search);
+        if(params.get('auth')==='success' && json.authenticated){
+          // Successfully authenticated, fetch locations
+          window.history.replaceState({},'','/');
+          setIsGbpAuth(true);
+          await fetchAndShowLocations();
+        } else if(params.get('auth')==='error'){
+          const reason=params.get('reason')||'';
+          window.history.replaceState({},'','/');
+          if(reason==='not_configured'){
+            setAuthError('Googleビジネスプロフィール連携がまだ設定されていません。');
+          } else {
+            setAuthError('認証に失敗しました: '+reason);
+          }
+        } else if(json.authenticated){
+          setIsGbpAuth(true);
+          await fetchAndShowLocations();
+        }
+      }catch(e){
+        console.error('Auth check failed:', e);
+      }
+      setLoading(false);
+    })();
+  },[]);
+
+  const fetchAndShowLocations=async()=>{
+    try{
+      const res=await fetch('/api/gbp/locations');
+      const json=await res.json();
+      if(json.status==='OK' && json.locations?.length>0){
+        setLocations(json.locations);
+        if(json.locations.length===1){
+          // Auto-select single location
+          await fetchDashboard(json.locations[0]);
+        } else {
+          setScreen('selectLocation');
+        }
+      } else {
+        setAuthError(json.message||'店舗が見つかりませんでした。');
+        setScreen('connect');
+      }
+    }catch(e){
+      setAuthError('店舗データの取得に失敗しました。');
+      setScreen('connect');
+    }
+  };
+
+  const fetchDashboard=async(loc)=>{
+    try{
+      const res=await fetch('/api/gbp/dashboard?account='+encodeURIComponent(loc.accountName)+'&location='+encodeURIComponent(loc.name));
+      const json=await res.json();
+      if(json.status==='OK' && json.data){
+        setStoreData(json.data);
+        setIsDemo(false);
+        setScreen('dashboard');
+      } else {
+        setAuthError(json.message||'データの取得に失敗しました。');
+      }
+    }catch(e){
+      setAuthError('通信エラーが発生しました。');
     }
   };
 
   const handleDemo=()=>{
     setIsDemo(true);
     setStoreData(null);
+    setIsGbpAuth(false);
     setScreen('dashboard');
   };
 
@@ -923,12 +1021,49 @@ function App(){
     setScreen('connect');
     setStoreData(null);
     setIsDemo(false);
+    setAuthError('');
   };
 
-  if(screen==='connect'){
-    return html`<${ConnectScreen} onConnect=${handleConnect} onDemo=${handleDemo}/>`;
+  const handleLogout=async()=>{
+    try{ await fetch('/api/auth/logout'); }catch(e){}
+    setIsGbpAuth(false);
+    setLocations([]);
+    setStoreData(null);
+    setAuthStatus(prev=>({...prev, authenticated:false}));
+    setScreen('connect');
+  };
+
+  const handleLocationSelect=(dashboardData)=>{
+    setStoreData(dashboardData);
+    setIsDemo(false);
+    setScreen('dashboard');
+  };
+
+  if(loading){
+    return html`<div class="min-h-screen flex items-center justify-center" style=${{background:'linear-gradient(135deg,#F0FDF4 0%,#F8FAFB 40%,#EFF6FF 100%)'}}>
+      <div class="text-center">
+        <div class="w-12 h-12 border-3 border-brand-500 border-t-transparent rounded-full mx-auto mb-4" style=${{animation:'spin 1s linear infinite'}}/>
+        <p class="text-sm text-gray-500">読み込み中...</p>
+      </div>
+    </div>`;
   }
-  return html`<${Dashboard} storeData=${storeData} isDemo=${isDemo} onGoHome=${handleGoHome}/>`;
+
+  if(screen==='connect'){
+    return html`<div>
+      ${authError && html`<div class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 shadow-lg flex items-center gap-2 max-w-md">
+        <${Icon} name="alertTriangle" size=${16} color="#EF4444"/>
+        <span>${authError}</span>
+        <button onClick=${()=>setAuthError('')} class="ml-2 text-red-400 hover:text-red-600"><${Icon} name="x" size=${14}/></button>
+      </div>`}
+      <${ConnectScreen} onDemo=${handleDemo} authStatus=${authStatus}/>
+    </div>`;
+  }
+
+  if(screen==='selectLocation'){
+    return html`<${LocationSelectScreen} locations=${locations} onSelect=${handleLocationSelect} onLogout=${handleLogout} onGoHome=${handleGoHome}/>`;
+  }
+
+  return html`<${Dashboard} storeData=${storeData} isDemo=${isDemo} isGbpAuth=${isGbpAuth} onGoHome=${handleGoHome} onLogout=${handleLogout}/>`;
 }
 
 // ===== RENDER =====
